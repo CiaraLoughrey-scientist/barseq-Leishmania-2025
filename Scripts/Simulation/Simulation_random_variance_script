@@ -1,0 +1,107 @@
+% parasites and bottlenecks simulation 
+% with growth rate variance
+
+% create output dataframe
+sim_output_data = [];
+
+for p = [0.0000001 0.0000005 0.000001 0.000005 0.00001 0.00005 0.0001 0.0005 0.001 0.005 0.01 0.05 0.1 0.5]; % individual's probability of getting through bottleneck
+% alter this as a loop for 0.0000001 to 0.5 for wide range of bottlenecks
+% simulating parasites traversing bottleneck (or not) with prob p of each passing through
+% we will use a realistic number of parasites in total - 5x10^7
+% what is the 'real' bottleneck pop size (simulation) vs what is the STAMP estimate
+%do they match each other?
+% calculated population size at different p values via counting real number and comparing to STAMP estimate
+
+% The aim here is to generate a vector of parasites passing through the bottleneck
+for nbar = [10 20 30 40 50 70 100 140 210 350 500]  % total number of barcodes used in each 'pool'
+    % so we will need nbar barcodes in the experiement,
+    % in total
+inputmatrix = zeros(1, nbar);
+outputmatrix = zeros(1, nbar);
+foundervec = [];
+for i=1:100 %100 iterations as repeat experiments
+
+ for looppower = 1
+    % input vector of barcodes, call it initialvec
+    % need to normalise number of parasites to 5x10^7 total in each run
+    nindividperbarcode = floor((5*10^7)/nbar);
+    nindividperbarcode_int = int32((5*10^7)/nbar) % number of individiduals with a given barcode always 
+    initialvec = ones(1,nbar)*nindividperbarcode; 
+
+    % see who gets through the BN, call it foundervec
+  for count = 1:nbar
+        foundervec(count) = binornd(initialvec(count), p);
+  end
+   % inserting growth rate variation 5% either way 
+  growth_variance = 0.95 + (1.05-0.95).*rand(1, nbar);
+  new_foundervec = foundervec.*growth_variance
+
+  
+  %inputs
+    inputmatrix(looppower,:) = initialvec; %input for the experiment (parasites for each barcode)
+    % outputs
+    outputmatrix(looppower,:) = new_foundervec; %This is the output from the experiment
+%     looppower
+%     initialvec
+%     foundervec
+%     sum(foundervec>0) % number of barcodes through BN
+%     sum(foundervec) % NB i.e. founder population
+ end
+inputmatrix
+outputmatrix
+
+% next task: use outputmatrix in MATLAB to calculate STAMP numbers 
+% which is a vector, size 1*looppower
+% calculate input and output frequencies by dividing by sum totals for each
+% loop
+% sum rows in outputmatrix
+outputsum = sum(outputmatrix,2); %summing rows in matrix
+output_freq = outputmatrix.*((outputsum).^-1);
+output_freq %working to here
+inputsum = sum(inputmatrix,2);
+input_freq = inputmatrix.*((inputsum).^-1); 
+input_freq 
+
+% output - input
+diff_matrix = output_freq - input_freq;
+diff_square = diff_matrix.*diff_matrix;
+%need matrix of 1*10 with all 1s to do 1-input_freq
+one_matrix = ones(1,nbar);
+to_sum = diff_square.*(input_freq.*(one_matrix - input_freq).^-1);
+% square result
+% divide by (input freq * (1- input freq)
+denomfhat = ones(1,1).*nbar;
+f_hat = sum(to_sum,2).*denomfhat; %for each loop, should have a row each in final vector
+% sum for each loop (matrix 1*looppower)
+% divide by nbar and take inverse - STAMP bottleneck population
+nombottleneckpop = ones (1,1);
+bottleneck_pop = nombottleneckpop.*(f_hat.^-1);
+% actual bottleneck population (counting individuals)
+true_pop = sum(outputmatrix, 2);
+true_pop %true bottleneck population from counting total
+bottleneck_pop %STAMP calculated population values
+
+% combine values to get probability
+true_bottle_prob_matrix = true_pop;
+true_bottle_prob = mean(true_bottle_prob_matrix);
+STAMP_bottle_prob_matrix = bottleneck_pop; % mean of all pools
+STAMP_bottle_prob = nanmean(STAMP_bottle_prob_matrix); %mean of all pools
+%matrix of probability for output
+bottle_probability = ones(1, 1)*p
+%matrix of barcode total for output
+barcode_number = ones(1, 1)*nbar
+%insert results into table - true bottleneck, bottleneck STAMP, probability
+
+% add data from sims to table
+new_sim_data = [true_bottle_prob_matrix STAMP_bottle_prob_matrix inputsum barcode_number bottle_probability];
+sim_output_data =[sim_output_data; new_sim_data];
+end 
+end
+end
+% simulate more probability values
+% repeat for 15, 20, 30, 50 barcodes per pool
+%repeat for 100 iterations
+%output the simulation data table
+sim_output_data
+%export data as csv
+writematrix(sim_output_data, 'sim_output_10_to_500_barcodes_variance.xls')
