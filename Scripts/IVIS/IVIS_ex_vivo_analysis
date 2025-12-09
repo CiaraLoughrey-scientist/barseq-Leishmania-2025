@@ -1,0 +1,105 @@
+#ivis ex vivo organs analysis#
+#for all reinfection experiments#
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Mice/Reinfection_ex_vivo_analysis_amalgamated")
+
+#packages#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+
+#load data file#
+data_file <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Mice/Reinfection_ex_vivo_analysis_amalgamated/amalagamated_data_all_reinf_expts_organs_ex_vivo.csv")
+
+#change controls to uninfected#
+data_file$Infection_1[data_file$Expt %in% c("Con")] <- "Un"
+data_file$Infection_2[data_file$Expt %in% c("Con")] <- "Un"
+data_file$Groups <- "Not_un"
+data_file$Groups[data_file$Expt %in% c("Con")] <- "Un"
+
+
+#background calculation#
+#by tissue type#
+
+bkd <- subset(data_file, Groups %in% c("Un")) %>%
+  rstatix::group_by(Organ) %>%
+  summarise(mean_bkd = mean(Total.Flux_p.s))
+
+data_file$bkrd[data_file$Organ %in% c("BM")] <- 20928.18
+data_file$bkrd[data_file$Organ %in% c("Gut")] <- 10468.89
+data_file$bkrd[data_file$Organ %in% c("LN")] <- 11587.78
+data_file$bkrd[data_file$Organ %in% c("Liver")] <- 111833.3
+data_file$bkrd[data_file$Organ %in% c("Lung")] <- 15846.67
+data_file$bkrd[data_file$Organ %in% c("Spleen")] <- 13713.33
+
+
+#flux minus background#
+data_file$flux_minus_bkrd <- data_file$Total.Flux_p.s - data_file$bkrd
+
+data_file$time_point_from_reinf[is.na(data_file$time_point_from_reinf)] <- "d0"
+
+#only experiment 4 data#
+data_file2 <- subset(data_file, Expt %in% c("4"))
+
+
+#infection with luc then barcodes#
+
+data_file2$Infection_2 <- factor(data_file2$Infection_2, levels = c("Un", "none", "barcodes", "luc"))
+
+#infection barcodes then luc second#
+data_file2 <- data_file
+data_file2$Infection_1 <- factor(data_file2$Infection_1, levels = c("Un", "none", "barcodes", "luc"))
+data_file2$flux_minus_bkrd[data_file2$flux_minus_bkrd < 0] <- 0
+
+#change to log for scale on graph#
+data_file2$log_flux_minus_bkrd <- log(data_file2$flux_minus_bkrd)
+
+#change any negative values to a small value above 0 so they can be plotted#
+data_file2$log_flux_minus_bkrd[data_file2$log_flux_minus_bkrd == "-Inf"] <- 0.0000001
+
+#plot#
+IVIS_plot <- ggplot(subset(data_file2, Expt %in% c("4") & mouse_sex %in% c("Female") & 
+                             time_point_from_reinf != c("d02") & Infection_2 != c("none")),
+                    aes(y=log_flux_minus_bkrd, x=Organ)) + 
+  geom_jitter(aes(colour = Infection_1),
+              size = 3, stroke = 1,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = Infection_1), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 1, fatten = 2, show.legend = FALSE)+
+  labs(title = "Day 14 Parasite Burden\nSecondary Infection\n", y="log(Total Flux p/s - background)\n", x="\nTissue", colour = "Infection:") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 25)) +
+  scale_x_discrete(labels = c("Bone\nMarrow", "Gut", "Liver", "Lymph\nNode", "Lung", "Spleen")) +
+  theme_bw() + theme(legend.title = element_text(size = 16),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(),
+                     plot.caption = element_text(size = 14),
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=20), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16)) +
+  scale_fill_manual(values = c("#31688e","#35b779"), labels = c("Single luciferase", "Re-infection")) +
+  scale_colour_manual(values = c("#31688e", "#35b779"), labels = c("Single luciferase", "Re-infection"))+
+  guides(fill="none")
+IVIS_plot <- IVIS_plot + stat_pwc(aes(y=log_flux_minus_bkrd, x=Organ, group = Infection_1),
+                                  hide.ns = "p", step.increase = 0.1, vjust = -0.25,
+                                  bracket.nudge.y = 0.1, tip.length = 0,  size = 0.7, label.size = 4, label = "p", 
+                                  method = "wilcox_test")
+IVIS_plot
+ggsave("IVIS_second_infection_plot_d14_reinfection_final_plot_just_reinf3.png", width = 6, height = 6)
+ggsave("IVIS_second_infection_plot_d14_reinfection_final_plot_just_reinf3.pdf", width = 6, height = 6)
+
+
+
+#statistics#
+df_p_val <- subset(data_file2, Expt %in% c("4") & mouse_sex %in% c("Female") & 
+                     time_point_from_reinf != c("d02") & Infection_2 != c("none")) %>%
+  rstatix::group_by(Organ) %>% 
+  rstatix::wilcox_test(flux_minus_bkrd ~ Infection_1, detailed = T, paired = F) 
+
+#save file#
+write.csv(df_p_val, file = "mann_whitney_IVIS_organs_reinf3.csv")
