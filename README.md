@@ -3,7 +3,7 @@ A repository containing all scripts and data for the 2025 paper
 
 ### Scripts
 
-Scripts for the analysis included within the paper.
+Scripts for the analysis included within the paper above.
 
 Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. These scripts were developed with Alastair Droop and are also included in his University of York Data Science repository at: https://github.com/uoy-research/fqbarcode alongside further relevant information. 
 
@@ -15,8 +15,7 @@ IVIS folder contains the R script needed to analysis the ex vivo IVIS data and c
 
 Simulation folder contains the MATLAB scripts for running the simulation described in Figure 1. There are five scripts, one for the initial simulation, one for the simulation with growth rate variation and three for the three clonal expansion scenarios. Also included is the R script for the correlation analysis performed on the simulatied datasets and for producing the figure in the paper. 
 
-Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. 
-
+Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used pubished data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. 
 
 ### Data files
 
@@ -29,8 +28,6 @@ In_vitro contains the in vitro parasite library culture data and the in vitro ma
 IVIS contains the IVIS ex vivo imaging for the secondary infection tissue burdens, covered in Figure 6 and Extended Data Figure 8.
 
 Simulation contains the MATLAB simulation output datasets, covered in Figure 1.
-
-Validation contains the previously published datasets from Hotinger et al, Hullahalli et al and Lebrun-Corbin et al, discussed in the Validation section of Methods and covered in Supplementary Figures 4-6. 
 
 
 ### References
