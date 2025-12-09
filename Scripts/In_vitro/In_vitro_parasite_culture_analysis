@@ -1,0 +1,80 @@
+#fitting distributions to in vitro parasite culture data#
+
+#set wd#
+setwd("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/IN_vitro_barcodes_analysis")
+
+#load datasets#
+in_vitro_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_barcodes_analysis/In_vitro_datasets.csv")
+
+#packages needed#
+library(tidyverse)
+
+
+
+#subset for experiment run#
+df_R <- in_vitro_df[c(1, 2, 5:9)]
+df_B1P1 <- in_vitro_df[c(10:20)]
+df_B2P2 <- in_vitro_df[c(21:29)]
+
+
+#calculate reads freq - input freq for each barcode#
+df_R2 <- df_R[-c(1, 2)]
+df_R_freq <- data.frame(apply(df_R2, 2, function(col_in) {
+  return((col_in/sum(col_in)) - (df_R$R.INPUT1st.1/sum(df_R$R.INPUT1st.1)))
+}))
+
+df_B1P12 <- df_B1P1[-c(6:11)]
+B1P1_mean <- apply(cbind(df_B1P1$B1P1_INPUT1_1, df_B1P1$B1P1_INPUT1_2, df_B1P1$B1P1_INPUT1_3,
+                  df_B1P1$B1P1_INPUT2_1, df_B1P1$B1P1_INPUT2_2, df_B1P1$B1P1_INPUT2_3), 1, mean) 
+df_B1P1_freq <- data.frame(apply(df_B1P12, 2, function(col_in) {
+  return((col_in/sum(col_in)) - (B1P1_mean/sum(B1P1_mean)))
+}))
+
+df_B2P22 <- df_B2P2[-c(6:9)]
+B2P2_mean <- apply(cbind(df_B2P2$B2P2_INPUT1_1, df_B2P2$B2P2_INPUT1_2, df_B2P2$B2P2_INPUT2_1, df_B2P2$B2P2_INPUT2_2), 1, mean) 
+df_B2P2_freq <- data.frame(apply(df_B2P22, 2, function(col_in) {
+  return((col_in/sum(col_in)) - (B2P2_mean/sum(B2P2_mean)))
+}))
+
+#add barcode list#
+barcodes <- data.frame(in_vitro_df$barcode)
+
+
+#merge data together#
+merged_df <- bind_cols(df_B1P1_freq, df_B2P2_freq, df_R_freq, barcodes)
+
+#long format#
+df_long <- pivot_longer(
+  merged_df,
+  cols = B1P1_DAY7F1:R.INVITRO.F5,
+  names_to = "samples", 
+  values_to = "delta_freq"
+)
+
+#label experiment#
+df_long <- transform(df_long, experiment = substr(samples, 1, 2))
+
+#plot all data in one figure#
+
+ggplot() + geom_point(data = df_long, aes(x=in_vitro_df.barcode, y=delta_freq, colour = experiment)) +
+  scale_y_continuous( breaks = c(-0.2, -0.1, 0, 0.1)) +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  labs(title = "Barcode change from input\n", x = "Barcode", y = "Change in frequency\n") +
+  theme_bw() + theme(plot.title = element_text(hjust = 0.5, size = 30),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_blank(),
+                     axis.ticks.x = element_blank(),
+                     axis.text.y = element_text(size = 20),
+                     legend.text = element_text(size = 16)) +
+  guides(colour = "none") +
+  scale_colour_viridis_d()
+
+
+#save plots#
+ggsave("change_from_input_in_vitro_FINAL.png", width= 8, height = 6)
+ggsave("change_from_input_in_vitro_FINAL.pdf", width= 8, height = 6)
