@@ -5,7 +5,7 @@ A repository containing all scripts and data for the 2025 paper
 
 Scripts for the analysis included within the paper.
 
-Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. 
+Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. These scripts were developed with Alastair Droop and are also included in his University of York Data Science repository at: https://github.com/uoy-research/fqbarcode alongside further relevant information. 
 
 Barseq folder contains all analysis scripts for the analysis of the barcode counts dataset, covering Figures 2 to 6 and Extended Data Figures 3-7.
 
