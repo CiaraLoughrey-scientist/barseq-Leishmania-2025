@@ -1,0 +1,149 @@
+#fitting of GLMM using tweedy poisson-gamma compound distribution#
+#FINAL ANALYSIS VERSION#
+
+
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(cplm)
+library(tweedie)
+
+
+#load GD dataset#
+GD_data <-  read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/GD_data/Reinf3_all_GD_data.csv")
+
+#change mouse ID to factor#
+GD_data$mouse_ID <- as.factor(GD_data$mouse_ID)
+
+#add tissue groups#
+GD_data$TISSUE1 <- GD_data$Sample
+GD_data$TISSUE1[GD_data$Sample %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                         "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+GD_data$TISSUE1[GD_data$Sample %in% c("BM1", "BM2")] <- "BM"
+GD_data$TISSUE1[GD_data$Sample %in% c("LN1", "LN2")] <- "LN"
+GD_data$TISSUE1[GD_data$Sample %in% c("LL", "LM", "LS", "L")] <- "LIVER"
+
+GD_data$TISSUE2 <- GD_data$comparison
+GD_data$TISSUE2[GD_data$comparison %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+GD_data$TISSUE2[GD_data$comparison %in% c("BM1", "BM2")] <- "BM"
+GD_data$TISSUE2[GD_data$comparison %in% c("LN1", "LN2")] <- "LN"
+GD_data$TISSUE2[GD_data$comparison %in% c("LL", "LM", "LS", "L")] <- "LIVER"   
+
+#add animal groups#
+#add groups#
+GD_data$group <- NULL
+GD_data$group[GD_data$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+GD_data$group[GD_data$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+GD_data$group[GD_data$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+GD_data$group[GD_data$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+GD_data$group[GD_data$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+GD_data$group2 <- NULL
+GD_data$group2[GD_data$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+GD_data$group2[GD_data$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+GD_data$group2[GD_data$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+GD_data$group2[GD_data$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+GD_data$group2[GD_data$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add tissue type#
+GD_data$tissue_type1 <- "VIS"
+GD_data$tissue_type1[GD_data$TISSUE1 == "SKIN"] <- "SKIN"
+GD_data$tissue_type2 <- "VIS"
+GD_data$tissue_type2[GD_data$TISSUE2== "SKIN"] <- "SKIN"
+
+#add skin sample labels grouped by mouse#
+
+GD_data$TISSUE1_LABEL <- paste0("M", GD_data$mouse_ID, GD_data$TISSUE1)
+GD_data$TISSUE2_LABEL <- paste0("M", GD_data$mouse_ID, GD_data$TISSUE2)
+
+#subset for early vs late only#
+GD_data_sub <- subset(GD_data, group2 %in% c("1single_early", "1single_late") & GD != 0)
+
+#subset for reinfection comparison only#
+GD_data_sub2 <- subset(GD_data, group %in% c("1single_12wk", "2reinf_2wk") & GD != 0)
+
+#subset for skin as input pool and output pool, for skin to skin seeding assessment#
+GD_data_sub_skin_to_skin <- subset(GD_data_sub, TISSUE1 == "SKIN" & TISSUE2 == "SKIN")
+GD_data_sub2_skin_to_skin <- subset(GD_data_sub2, TISSUE1 == "SKIN" & TISSUE2 == "SKIN")
+
+#subset for skin to visceral comparisons#
+GD_data_sub_skin_to_vis <- subset(GD_data_sub, TISSUE1 == "SKIN" & TISSUE2 != "SKIN")
+GD_data_sub2_skin_to_vis <- subset(GD_data_sub2, TISSUE1 == "SKIN" & TISSUE2 != "SKIN")
+
+
+
+
+
+
+
+#model for early vs late vis to skin#
+
+#full model#
+#fixed effects are interaction of group and tissue (visceral)#
+skin_m2 <- cpglmm(formula = GD ~ group2*TISSUE2 + (1|mouse_ID), data = GD_data_sub_skin_to_vis)
+skin_m2
+#AIC  BIC logLik deviance
+#-1534 -1464  781.1    -1562
+
+#remove fixed effects so only random effects included#
+skin_m2a <- cpglmm(formula = GD ~ (1|mouse_ID), data = GD_data_sub_skin_to_vis)
+skin_m2a
+#AIC  BIC logLik deviance #best model by AIC#
+#-1370 -1355    688    -1376
+
+#remove group random effect so only fixed effects included#
+skin_m2b <- cpglm(formula = GD ~ group2*TISSUE2, data = GD_data_sub_skin_to_vis)
+skin_m2b
+#AIC -1487.2   
+
+#remove interaction of fixed effects
+skin_m2c <- cpglmm(formula = GD ~ group2 + TISSUE2 + (1|mouse_ID), data = GD_data_sub_skin_to_vis)
+skin_m2c
+#AIC  BIC logLik deviance
+#-1519 -1474  768.6    -1537
+
+#remove group fixed effect
+skin_m2d <- cpglmm(formula = GD ~ TISSUE2 + (1|mouse_ID), data = GD_data_sub_skin_to_vis)
+skin_m2d
+#AIC  BIC logLik deviance
+#-1519 -1479  767.5    -1535
+
+#remove tissue fixed effect
+skin_m2e <- cpglmm(formula = GD ~ group2 + (1|mouse_ID), data = GD_data_sub_skin_to_vis)
+skin_m2e
+#AIC  BIC logLik deviance
+#-1370 -1350    689    -1378
+
+
+#evaluate model parameters using pairwise anovas and AIC/BIC values for best fits#
+#anova(skin_m2, skin_m2a)
+#p< 2.2e-16#
+#anova(skin_m2, skin_m2b)
+
+#anova(skin_m2, skin_m2c)
+#p= 0.0001338#
+#anova(skin_m2, skin_m2d)
+#p= 0.000133#
+#anova(skin_m2, skin_m2e)
+# p < 2.2e-16#
+
+#gini comparison#
+GD_data_sub_skin_to_vis_gini <- GD_data_sub_skin_to_vis
+da2 <- transform(GD_data_sub_skin_to_vis_gini, P1 = fitted(skin_m2), P2 = fitted(skin_m2a), 
+                P3 = fitted(skin_m2b), P4 = fitted(skin_m2c), P5 = fitted(skin_m2d), P6 = fitted(skin_m2e))
+gg2 <- gini(loss = "GD", score = paste("P", 1:6, sep = ""), 
+           data = da2)
+gg2
+#selects P1 as best model#
+#so early vs late interaction with tissue matters, and mouse ID also does#
+
+#plot Lorenz curves#
+theme_set(theme_bw())
+plot(gg2)
+plot(gg2, overlay = FALSE)
