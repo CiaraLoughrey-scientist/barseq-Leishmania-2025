@@ -357,6 +357,33 @@ all_mice_df <- rbind(sub_df_long3_mice, sub_df_long3_mice2)
 all_mice_df <- subset(all_mice_df, FFP >20)
 
 
+#value above threshold#
+PercentAbove(sub_df_long3_mice$FFP, 1)
+#24.08%
+
+PercentAbove(sub_df_long3_mice$FFP, 10)
+#7.26%
+
+PercentAbove(sub_df_long3_mice$FFP, 20)
+#4.57%
+
+PercentAbove(sub_df_long3_mice$FFP, 30)
+#3.77%
+
+PercentAbove(sub_df_long3_mice$FFP, 40)
+#3.18%
+
+PercentAbove(sub_df_long3_mice$FFP, 50)
+#2.63%
+
+PercentAbove(sub_df_long3_mice$FFP, 100)
+#1.32%
+
+PercentAbove(sub_df_long3_mice$FFP, 150)
+#0.91%
+PercentAbove(sub_df_long3_mice$FFP, 500)
+#0.21
+
 
 #"background" migration density plots#
 #FFP#
