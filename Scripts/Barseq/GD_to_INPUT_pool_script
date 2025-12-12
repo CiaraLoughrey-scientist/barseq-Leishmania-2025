@@ -1,0 +1,160 @@
+#compute GD of all tissue samples from the original input pool#
+
+#set working directory#
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+library(Seurat)
+library(fitdistrplus)
+
+#Genetic Distance (GD) defined as Cavalli-Sforza chord distance#
+chord_dist = function(count1, count2){
+  freq1 = count1/sum(unlist(count1))
+  freq2 = count2/sum(unlist(count2))
+  costheta = sum(sqrt(freq1*freq2))
+  chord_dist = (2*(sqrt(2))/pi)*(sqrt(1-costheta))
+  chord_dist
+}
+
+
+
+
+
+
+##############################################
+
+
+#load dataframe#
+barcode_counts5 <- read.csv("Data/2025-JCM-002-barcodes.csv")
+barcode_counts5 <- subset(barcode_counts5, X != c("TGGATCTTAGGACGCAACAT"))
+
+#GD calculation all pairs#
+df <- barcode_counts5[-c(1)]
+paired <- combn(colnames(df), 2)
+len = length(colnames(df))
+chord_df <- matrix(ncol = len, nrow = len)
+chord_df[,] <- 0
+colnames(chord_df) <- colnames(df)
+rownames(chord_df) <- colnames(df)
+
+for (p in seq(1, ncol(paired))) {
+  colA <- paired[1,p]
+  colB <- paired[2,p]
+  cd <- chord_dist(df[colA], df[colB])
+  chord_df[colA,colB] <- cd
+  chord_df[colB,colA] <- cd
+}
+
+chord_df_data <- data.frame(chord_df)
+chord_df_data <- mutate(chord_df_data, "comparison" = rownames(chord_df_data))
+
+#long format data#
+df_long <- pivot_longer(
+  chord_df_data,
+  cols = colnames(df),
+  names_to = "Sample",
+  values_to = "GD"
+)
+
+
+
+#input vector#
+INPUT_VEC <- c("INPUT1A", "INPUT2A", "INPUT1B", "INPUT2B", "INPUT1C", "INPUT2C")
+
+#sample type#
+df_long$type1 <- "MOUSE"
+df_long$type2 <- "MOUSE"
+df_long$type1[df_long$Sample %in% INPUT_VEC] <- "INPUT"
+df_long$type2[df_long$comparison %in% INPUT_VEC] <- "INPUT"
+
+#mouse IDs#
+df_long$mouse_ID1 <- parse_number(df_long$Sample)
+df_long$mouse_ID1[df_long$Sample %in% INPUT_VEC] <- NA
+df_long$mouse_ID2 <- parse_number(df_long$comparison)
+df_long$mouse_ID2[df_long$comparison %in% INPUT_VEC] <- NA
+
+#name tissues#
+
+df_long$Tissue1 <- sub('^M[0-9]+', '', df_long$Sample)
+
+df_long$Tissue2 <- sub('^M[0-9]+', '', df_long$comparison)
+
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN1")] <- "SKIN01" 
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN2")] <- "SKIN02"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN3")] <- "SKIN03"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN4")] <- "SKIN04"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN5")] <- "SKIN05"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN6")] <- "SKIN06"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN7")] <- "SKIN07"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN8")] <- "SKIN08"
+df_long$Tissue2[df_long$Tissue2 %in% c("SKIN9")] <- "SKIN09"
+
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN1")] <- "SKIN01" 
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN2")] <- "SKIN02"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN3")] <- "SKIN03"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN4")] <- "SKIN04"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN5")] <- "SKIN05"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN6")] <- "SKIN06"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN7")] <- "SKIN07"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN8")] <- "SKIN08"
+df_long$Tissue1[df_long$Tissue1 %in% c("SKIN9")] <- "SKIN09"
+
+
+
+
+#plot GD to INPUT POOLS by mouse#
+#all mice#
+ggplot(subset(df_long, type1 == "INPUT" & Sample != comparison & mouse_ID2 %in% c(1, 2, 3, 5, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)),
+       aes(x = Tissue1, y= Tissue2, fill = GD)) + geom_tile() +
+  labs(fill = "Genetic Distance:\n", x= "\nTissue", y = "Tissue\n") +
+  scale_fill_viridis_c(option = "B", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+  scale_x_discrete(labels = c(S = "SPLEEN")) +
+  scale_y_discrete(labels = c(S = "SPLEEN")) +
+  theme_bw() + theme(legend.title = element_text(size = 16),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=20), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 12, colour = "black", vjust = 0.5, angle = 90),
+                     axis.text.y = element_text(size = 12, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"), 
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~mouse_ID2, scale = "free_y", nrow = 5)
+ggsave("Results/Validation/heatmap_GD_BY_MOUSE_TO_inputs_facet.png", width = 16, height = 20)
+ggsave("Results/Validation/heatmap_GD_BY_MOUSE_TO_inputs_facet.pdf", width = 16, height = 20)
+
+#early vs chronic mice#
+ggplot(subset(df_long, type1 == "INPUT" & Sample != comparison & mouse_ID2 %in% c(1, 2, 3, 5, 12, 13, 14, 21, 22, 23, 24, 25)),
+       aes(x = Tissue1, y= Tissue2, fill = GD)) + geom_tile() +
+  labs(fill = "Genetic Distance:\n", x= "\nInput Sample\n", y = "Tissue\n") +
+  scale_fill_viridis_c(option = "B", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+  scale_x_discrete(labels = c(S = "SPLEEN", L = "LIVER")) +
+  scale_y_discrete(labels = c(S = "SPLEEN", L = "LIVER")) +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=20), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 18, colour = "black"), 
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~mouse_ID2, scale = "free_y", nrow = 5)
+ggsave("Results/Validation/heatmap_GD_BY_MOUSE_TO_inputs_facet2.png", width = 16, height = 20)
+ggsave("Results/Validation/heatmap_GD_BY_MOUSE_TO_inputs_facet2.pdf", width = 16, height = 20)
