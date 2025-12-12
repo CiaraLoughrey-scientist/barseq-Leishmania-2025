@@ -1,0 +1,111 @@
+#FP by tissue superseeder tissue analysis#
+
+
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+
+
+#load data#
+reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/Reinf3_all_new_FP_data.csv")
+
+
+#find total FP seeded to visceral, skin and all tissues for each sample for each mouse at 4, 10 and 12 weeks#
+#group by input, output and mouse ID#
+#remove all samples with negative FP (sample FP to same tissue is negative value)#
+reinf3_df2 <- reinf3_df %>%
+  subset(FP > 0) %>%
+  group_by(INPUT_POOL, mouse_ID) %>%
+  mutate(TOTAL_FP = sum(FP))
+
+#group visceral and skins separately#
+reinf3_df2$INPUT3 <- sub('^M[0-9]+', '', reinf3_df2$INPUT2)
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("BM1", "BM2")] <- "BM" 
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("LN1", "LN2")] <- "LN"
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+
+reinf3_df2$tissue_type <- NULL
+reinf3_df2$tissue_type[reinf3_df2$INPUT3 %in% c("BM", "LN", "S", "LIVER", "GUT", "LUNG")] <- "VIS"
+reinf3_df2$tissue_type[reinf3_df2$INPUT3 %in% c("SKIN")] <- "SKIN"
+
+reinf3_df2$OUTPUT3 <- sub('^M[0-9]+', '', reinf3_df2$OUTPUT2)
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("BM1", "BM2")] <- "BM" 
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("LN1", "LN2")] <- "LN"
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+
+reinf3_df2$tissue_output <- NULL
+reinf3_df2$tissue_output[reinf3_df2$OUTPUT3 %in% c("BM", "LN", "S", "LIVER", "GUT", "LUNG")] <- "VIS"
+reinf3_df2$tissue_output[reinf3_df2$OUTPUT3 %in% c("SKIN")] <- "SKIN"
+
+
+reinf3_df2$group<- NULL
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+reinf3_df2$group2<- NULL
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#sum FPs for each tissue type#
+reinf3_df3 <- reinf3_df2 %>%
+  group_by(INPUT_POOL, mouse_ID, tissue_output) %>%
+  mutate(GROUPED_FP = sum(FP))
+
+#save data#
+write.csv(reinf3_df3, file = "Results/FP_by_tissue/FP_seeder_tissues.csv")
+
+
+
+#subset for each column needed for plot#
+reinf3_df4 <- reinf3_df3[, c("TOTAL_FP", "group", "tissue_type", "mouse_ID", "INPUT3")]
+reinf3_df4 <- unique(reinf3_df4) #get the unique value for each data point#
+
+
+#plot visceral vs skin seeding, facet by tissue recipient type#
+#subset for each column needed for plot#
+reinf3_df5 <- reinf3_df3[, c("GROUPED_FP", "group", "tissue_type", "mouse_ID", "INPUT3", "TOTAL_FP", "tissue_output", "group2")]
+reinf3_df5 <- unique(reinf3_df5) #get the unique value for each data point#
+
+
+#plot total TSFP for all samples split by recipient tissue type#
+ggplot(subset(reinf3_df5, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")), 
+       aes(x = INPUT3, y = GROUPED_FP)) + 
+  geom_jitter(aes(shape = tissue_type, colour = group2),
+              size = 1.5, stroke = 2,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) +
+  labs(title = "Tissue-sourced parasite seeding\n", x = "Source tissue", shape = "Source tissue type:", y = "Total TSFP\n", colour = "Infection phase:") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c(S = "SPLEEN")) +
+  theme_bw() + theme(legend.title = element_text(size = 16, hjust = 0.5),
+                     legend.position = "bottom",
+                     legend.direction = "vertical",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=20), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, angle = 45, hjust = 1, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  scale_shape_discrete(labels = c("Skin", "Visceral")) +
+    facet_wrap(~tissue_output, scale = "free_y", labeller = as_labeller(
+      c(SKIN = "Skin", VIS = "Visceral"))) 
+ggsave("Results/Figures_for_paper/Tissue_sourced_seeding_summary_plot2.png", width = 8, height = 6)
+ggsave("Results/Figures_for_paper/Tissue_sourced_seeding_summary_plot2.pdf", width = 8, height = 6)
