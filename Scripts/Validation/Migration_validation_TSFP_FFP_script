@@ -1,0 +1,406 @@
+#validation of TSFP and FFP#
+
+#set working directory#
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+library(Seurat)
+library(fitdistrplus)
+
+#founder pop function#
+founder_pop <- function(output_count, input_count){
+  output_count = as.vector(output_count)
+  input_count = as.vector(input_count)
+  output_freq = output_count/sum(output_count)
+  input_freq = input_count/sum(input_count)
+  diffsq = sum(((output_freq - input_freq)^2)/(input_freq*(1-input_freq)))
+  fhat = (1/(length(input_count)))*diffsq
+  input_seq_total = sum(input_count)
+  output_seq_total = sum(output_count)
+  founderpop = 1/(fhat - (1/input_seq_total) - (1/output_seq_total))
+  founderpop
+}
+
+#############################################################################################################
+#############################################################################################################
+#comparing input for migration/FFP validation#
+#############################################################################################################
+#############################################################################################################
+
+#load dataframe#
+barcode_counts5 <- read.csv("Data/2025-JCM-002-barcodes.csv")
+
+#remove low read samples as before#
+remove_columns <- sapply(subset(barcode_counts5, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts5[colnames(barcode_counts5) %in% remove_columns] <- NA 
+barcode_counts5 <- barcode_counts5[,setdiff(names(barcode_counts5), remove_columns)]
+
+#remove B59#
+barcode_counts5 <- subset(barcode_counts5, X != c("TGGATCTTAGGACGCAACAT"))
+barcode_counts6 <- barcode_counts5[-c(1)] #remove barcode list column#
+
+#new empty dataframe#
+FP_df5 <- data.frame()
+
+#loop TSFP through all pairs including the inputs this time#
+for (tissue in barcode_counts6){
+  
+  df <- barcode_counts6
+  input_names <- colnames(df) #list of column names#
+  #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+  df <- subset(df, tissue > 0)
+  #new input tissue vector with 0 removed#
+  tissue2 <- tissue[tissue != 0]
+  #name input as tissue2 vector in the FP calculation#
+  FP_df4 <- apply(df, 2, function(col_in) {
+    return(founder_pop(col_in, tissue2))
+  })
+  FP_df5 <- rbind(FP_df5, FP_df4)
+  
+}
+FP_df6 <- data.frame(FP_df5) #all pairwise comparisons in dataframe#
+
+
+colnames(FP_df6) <- names(df) #column names add#
+colnames(FP_df6) <- paste("OUTPUT_", colnames(FP_df6), sep = "")
+rownames(FP_df6) <- names(df) #rownames add#
+rownames(FP_df6) <- paste("INPUT_", rownames(FP_df6), sep = "")
+
+FP_df6 <- mutate(FP_df6, "INPUT_POOL" = rownames(FP_df6)) #add new column with input sample details#
+
+#pivot data longer#
+df_long2 <- pivot_longer(
+  FP_df6,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FP"
+)
+
+df_long2$INPUT2 <- gsub("INPUT_", "", df_long2$INPUT_POOL) #add input prefix#
+df_long2$OUTPUT2 <- gsub("OUTPUT_", "", df_long2$OUTPUT_POOL)#add output prefix#
+
+#change NA or negative to 0#
+df_long2$new_FP <- df_long2$FP
+df_long2$new_FP[df_long2$FP <0] <- 0
+df_long2$new_FP[df_long2$FP == "NA"] <- 0
+
+#vector for input sample names#
+INPUTS_VEC <- c("INPUT1A", "INPUT1B", "INPUT1C", "INPUT2A", "INPUT2B", "INPUT2C")
+
+#mouse IDs#
+samples_in = df_long2$INPUT2
+df_long2$mouse_ID_in <- NULL
+df_long2$mouse_ID_in <- parse_number(samples_in)
+df_long2$mouse_ID_in[df_long2$INPUT2 %in% INPUTS_VEC] <- NA
+
+#name tissues#
+Tissue_in <- sub('^M[0-9]+', '', samples_in)
+df_long2 <- mutate(df_long2, "Tissue_in" = Tissue_in)
+df_long2$Tissue_in[df_long2$Tissue_in %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                             "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+df_long2$Tissue_in[df_long2$Tissue_in %in% c("BM1", "BM2")] <- "BM"
+df_long2$Tissue_in[df_long2$Tissue_in %in% c("LN1", "LN2")] <- "LN"
+
+#mouse IDs#
+samples_out = df_long2$OUTPUT2
+df_long2$mouse_ID_out <- NULL
+df_long2$mouse_ID_out <- parse_number(samples_out)
+df_long2$mouse_ID_out[df_long2$OUTPUT2 %in% INPUTS_VEC] <- NA
+
+#name tissues#
+Tissue_out <- sub('^M[0-9]+', '', samples_out)
+df_long2 <- mutate(df_long2, "Tissue_out" = Tissue_out)
+df_long2$Tissue_out[df_long2$Tissue_out %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                               "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+df_long2$Tissue_out[df_long2$Tissue_out %in% c("BM1", "BM2")] <- "BM"
+df_long2$Tissue_out[df_long2$Tissue_out %in% c("LN1", "LN2")] <- "LN"
+
+
+###################################################################
+#FFP#
+
+#calculate fractional TSFP for INPUT POOL TSFPs in both directions#
+#minus one from other#
+FP_mat <- as.matrix(subset(FP_df6, select = -c(INPUT_POOL)))
+FP_trans <- data.frame(t(subset(FP_df6, select = -c(INPUT_POOL))))
+FP_mat2 <- as.matrix(FP_trans)
+
+FP_residual <- FP_mat - FP_mat2 #matrix minus its transposed matrix#
+FP_df_resid <- data.frame(FP_residual)
+rownames(FP_df_resid) <- rownames(FP_df6)
+FP_df_resid$INPUT_POOL <- rownames(FP_df_resid)
+#gives a signed value for FP for each combo#
+
+#remove values below 1 (so all negatives plus those which are negligible) to show only positive seeding#
+FFP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+
+#long format#
+#pivot data longer#
+#the original values before NA correction#
+df_long_extra <- pivot_longer(
+  FP_df_resid,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP_true"
+) 
+
+#the new FFP after correction#
+#pivot data longer#
+df_long3 <- pivot_longer(
+  FFP_df_final,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP"
+)
+
+#change the NAs to 0s for plots#
+df_long3$FFP[is.na(df_long3$FFP)] <- 0
+
+
+#vectors for INPUT POOL as input and as output#
+INPUTS_VEC2 <- c("INPUT_INPUT1A", "INPUT_INPUT1B", "INPUT_INPUT1C", "INPUT_INPUT2A", "INPUT_INPUT2B", "INPUT_INPUT2C")
+OUTPUTS_VEC2 <- c("OUTPUT_INPUT1A", "OUTPUT_INPUT1B", "OUTPUT_INPUT1C", "OUTPUT_INPUT2A", "OUTPUT_INPUT2B", "OUTPUT_INPUT2C")
+
+#for stats we subset data for input as input or output#
+as_input_df <- subset(df_long3, INPUT_POOL != OUTPUT_POOL & INPUT_POOL %in% INPUTS_VEC2 & !(OUTPUT_POOL %in% OUTPUTS_VEC2))
+as_output_df <- subset(df_long3, INPUT_POOL != OUTPUT_POOL & !(INPUT_POOL %in% INPUTS_VEC2) & OUTPUT_POOL %in% OUTPUTS_VEC2)
+
+#histograms#
+#make new column with 0 FFP as tiny value for log plots#
+as_input_df$new_FFP <- as_input_df$FFP
+as_input_df$new_FFP[as_input_df$FFP == 0] <- 0.9
+as_output_df$new_FFP <- as_output_df$FFP
+as_output_df$new_FFP[as_output_df$FFP == 0] <- 0.9
+
+#make direction group#
+df_long3$direction[df_long3$INPUT_POOL != df_long3$OUTPUT_POOL & !(df_long3$INPUT_POOL %in% INPUTS_VEC2) & df_long3$OUTPUT_POOL %in% OUTPUTS_VEC2] <- "2BACK"
+df_long3$direction[df_long3$INPUT_POOL != df_long3$OUTPUT_POOL & df_long3$INPUT_POOL %in% INPUTS_VEC2 & !(df_long3$OUTPUT_POOL %in% OUTPUTS_VEC2)] <- "1TRUE"
+df_long3$new_FFP <- df_long3$FFP
+df_long3$new_FFP[df_long3$FFP == 0] <- 0.9
+
+df_long3$INPUT2 <- gsub("INPUT_", "", df_long3$INPUT_POOL) #remove input prefix#
+df_long3$OUTPUT2 <- gsub( "OUTPUT_", "", df_long3$OUTPUT_POOL)#remove output prefix#
+
+#mouse IDs#
+samples_in = df_long3$INPUT2
+df_long3$mouse_ID_in <- NULL
+df_long3$mouse_ID_in <- parse_number(samples_in)
+df_long3$mouse_ID_in[df_long3$INPUT2 %in% INPUTS_VEC] <- NA
+
+#name tissues#
+Tissue_in <- sub('^M[0-9]+', '', samples_in)
+df_long3 <- mutate(df_long3, "Tissue_in" = Tissue_in)
+df_long3$Tissue_in[df_long3$Tissue_in %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                             "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+df_long3$Tissue_in[df_long3$Tissue_in %in% c("BM1", "BM2")] <- "BM"
+df_long3$Tissue_in[df_long3$Tissue_in %in% c("LN1", "LN2")] <- "LN"
+
+#mouse IDs#
+samples_out = df_long2$OUTPUT2
+df_long3$mouse_ID_out <- NULL
+df_long3$mouse_ID_out <- parse_number(samples_out)
+df_long3$mouse_ID_out[df_long2$OUTPUT2 %in% INPUTS_VEC] <- NA
+
+#name tissues#
+Tissue_out <- sub('^M[0-9]+', '', samples_out)
+df_long3 <- mutate(df_long3, "Tissue_out" = Tissue_out)
+df_long3$Tissue_out[df_long3$Tissue_out %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                               "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+df_long3$Tissue_out[df_long3$Tissue_out %in% c("BM1", "BM2")] <- "BM"
+df_long3$Tissue_out[df_long3$Tissue_out %in% c("LN1", "LN2")] <- "LN"
+
+
+
+
+#make direction group#
+df_long2$direction[df_long2$INPUT2 != df_long2$OUTPUT2 & !(df_long2$INPUT2 %in% INPUTS_VEC) & df_long2$OUTPUT2 %in% INPUTS_VEC] <- "2BACK"
+df_long2$direction[df_long2$INPUT2 != df_long2$OUTPUT2 & df_long2$INPUT2 %in% INPUTS_VEC & !(df_long2$OUTPUT2 %in% INPUTS_VEC)] <- "1TRUE"
+
+#facet histogram input pool as output for TSFP#
+ggplot(subset(df_long2, direction != "NA"), aes(x = log(new_FP))) + 
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = 3, colour = "red", linetype = "dashed", linewidth = 1.5) +
+  scale_x_continuous() +
+  scale_y_continuous() +
+  labs(title = "True vs false migration", x = "\nlog(TSFP)", y = "Count\n") +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~direction, labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
+ggsave("Results/Validation/facet_histogram_INPUT_POOL_INPUT_OUTPUT_TSFP.png", width = 8, height = 6)
+ggsave("Results/Validation/facet_histogram_INPUT_POOL_INPUT_OUTPUT_TSFP.pdf", width = 8, height = 6)
+
+#facet histogram input pool as output for FFP#
+ggplot(subset(df_long3, direction != "NA"), aes(x = log(new_FFP))) + 
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = 3, colour = "red", linetype = "dashed", linewidth = 1.5) +
+  scale_x_continuous() +
+  scale_y_continuous() +
+  labs(title = "True vs false migration", x = "\nlog(FFP)", y = "Count\n") +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~direction, labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
+ggsave("Results/Validation/facet_histogram_INPUT_POOL_INPUT_OUTPUT_FFP.png", width = 8, height = 6)
+ggsave("Results/Validation/facet_histogram_INPUT_POOL_INPUT_OUTPUT_FFP.pdf", width = 8, height = 6)
+
+
+
+
+#percent above for individual tissues#
+percentage_thresholds <- c(1, 10, 20, 30, 40, 50, 100, 150, 500)
+
+percent_values <- df_long3 %>%
+  subset(direction == "1TRUE") %>%
+  group_by(Tissue_out) %>%
+  mutate(percent_value_1 = PercentAbove(FFP, 1),
+         percent_value_10 = PercentAbove(FFP, 10),
+         percent_value_20 = PercentAbove(FFP, 20),
+         percent_value_30 = PercentAbove(FFP, 30),
+         percent_value_40 = PercentAbove(FFP, 40), 
+         percent_value_50 = PercentAbove(FFP, 50), 
+         percent_value_100 = PercentAbove(FFP, 100), 
+         percent_value_150 = PercentAbove(FFP, 150),
+         percent_value_500 = PercentAbove(FFP, 500))
+
+percent_values_false <- df_long3 %>%
+  subset(direction == "2BACK") %>%
+  group_by(Tissue_in) %>%
+  mutate(percent_value_1 = PercentAbove(FFP, 1),
+         percent_value_10 = PercentAbove(FFP, 10),
+         percent_value_20 = PercentAbove(FFP, 20),
+         percent_value_30 = PercentAbove(FFP, 30),
+         percent_value_40 = PercentAbove(FFP, 40), 
+         percent_value_50 = PercentAbove(FFP, 50), 
+         percent_value_100 = PercentAbove(FFP, 100), 
+         percent_value_150 = PercentAbove(FFP, 150),
+         percent_value_500 = PercentAbove(FFP, 500))
+
+
+percent_values_true <- unique(percent_values[, 11:20])
+
+percent_values_false2 <- unique(percent_values_false[c(9, 12:20)])
+
+#save dataframes#
+write.csv(percent_values_true, "Results/Validation/Percentage_above_threshold_true.csv")
+write.csv(percent_values_false2, "Results/Validation/Percentage_above_threshold_false.csv")
+
+
+
+
+#remove sample to same sample comparisons and all input samples#
+sub_df_long3 <- merge(df_long3, df_long2) #merging FFP and TSFP into one dataframe#
+sub_df_long3 <- subset(sub_df_long3, !(INPUT_POOL %in% INPUTS_VEC2) & !(OUTPUT_POOL %in% OUTPUTS_VEC2) & INPUT2 != OUTPUT2)
+
+#add mouse id in and out#
+sub_df_long3$mouse_ID_in <- parse_number(sub_df_long3$INPUT2)
+
+sub_df_long3$mouse_ID_out <- parse_number(sub_df_long3$OUTPUT2)
+
+df_long2$mouse_ID_in <- parse_number(df_long2$INPUT2)
+df_long2$mouse_ID_in[df_long2$INPUT2 %in% INPUTS_VEC] <- NA
+df_long3$mouse_ID_in <- parse_number(df_long3$INPUT_POOL)
+df_long3$mouse_ID_in[df_long3$INPUT_POOL %in% INPUTS_VEC2] <- NA
+
+df_long2$mouse_ID_out <- parse_number(df_long2$OUTPUT2)
+df_long2$mouse_ID_out[df_long2$OUTPUT2 %in% INPUTS_VEC] <- NA
+df_long3$mouse_ID_out <- parse_number(df_long3$OUTPUT_POOL)
+df_long3$mouse_ID_out[df_long3$OUTPUT_POOL %in% OUTPUTS_VEC2] <- NA
+
+sub_df_long3_mice <- subset(sub_df_long3, mouse_ID_in == mouse_ID_out)
+sub_df_long3_mice2 <- subset(sub_df_long3, mouse_ID_in != mouse_ID_out)
+set.seed(3)
+sub_df_long3_mice2 <- sample_n(sub_df_long3_mice2, 5246) #match sample numbers#
+
+#make a new FFP just for log based plotting which does not have 0 or negatives in it#
+sub_df_long3_mice$new_FFP <- sub_df_long3_mice$FFP
+sub_df_long3_mice$new_FFP[sub_df_long3_mice$new_FFP == 0] <- 0.9
+
+sub_df_long3_mice2$new_FFP <- sub_df_long3_mice2$FFP
+sub_df_long3_mice2$new_FFP[sub_df_long3_mice2$new_FFP == 0] <- 0.9
+
+sub_df_long3_mice$group <- "REAL"
+sub_df_long3_mice2$group <- "FAKE"
+
+#merge dataframes#
+all_mice_df <- rbind(sub_df_long3_mice, sub_df_long3_mice2)
+#subset for only values above FFP threshold#
+all_mice_df <- subset(all_mice_df, FFP >20)
+
+
+
+#"background" migration density plots#
+#FFP#
+ggplot(subset(all_mice_df, FFP > 20), aes(x = log(FFP), fill = group)) + 
+  geom_density(position = "identity", alpha = 0.3) +
+  geom_vline(xintercept = 3, size = 1.5, linetype = "dashed", colour = "red") +
+  labs(title = "FFP", x = "\nlog(FFP)", y = "Density\n", fill = "") +
+  scale_fill_viridis_d(option = "B", labels = c("Between mice", "Within mouse")) +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"))
+ggsave("Results/Validation/histogram_background_FFP.png", width = 8, height = 8)
+ggsave("Results/Validation/histogram_background_FFP.pdf", width = 8, height = 8)
+
+#TSFP#
+ggplot(subset(all_mice_df), aes(x = log(new_FP), fill = group)) + 
+  geom_density(position = "identity", alpha = 0.3) +
+  geom_vline(xintercept = 3, size = 1.5, linetype = "dashed", colour = "red") +
+  labs(title = "TSFP", x = "\nlog(TSFP)", y = "Density\n", fill = "") +
+  scale_fill_viridis_d(option = "B", labels = c("Between mice", "Within mouse")) +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"))
+ggsave("Results/Validation/histogram_background_TSFP.png", width = 8, height = 8)
+ggsave("Results/Validation/histogram_background_TSFP.pdf", width = 8, height = 8)
+
+
+
+
