@@ -1,0 +1,149 @@
+#FP by tissue TSFP to and from skin analysis#
+
+
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(car)
+
+
+#load data#
+reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/Reinf3_all_FP_data.csv")
+#reinf2_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/Reinf2_all_FP_data.csv")
+
+
+#find total FP seeded to visceral, skin and all tissues for each sample for each mouse at 4, 10 and 12 weeks#
+#group by input, output and mouse ID#
+#remove all samples with negative FP (sample FP to same tissue is negative value)#
+reinf3_df2 <- reinf3_df %>%
+  subset(FP > 0) %>%
+  group_by(INPUT_POOL, mouse_ID) %>%
+  mutate(TOTAL_FP = sum(FP))
+
+#group visceral and skins separately#
+reinf3_df2$INPUT3 <- sub('^M[0-9]+', '', reinf3_df2$INPUT2)
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("BM1", "BM2")] <- "BM" 
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("LN1", "LN2")] <- "LN"
+reinf3_df2$INPUT3[reinf3_df2$INPUT3 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+
+reinf3_df2$tissue_type <- NULL
+reinf3_df2$tissue_type[reinf3_df2$INPUT3 %in% c("BM", "LN", "S", "LIVER", "GUT", "LUNG")] <- "VIS"
+reinf3_df2$tissue_type[reinf3_df2$INPUT3 %in% c("SKIN")] <- "SKIN"
+
+reinf3_df2$OUTPUT3 <- sub('^M[0-9]+', '', reinf3_df2$OUTPUT2)
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("BM1", "BM2")] <- "BM" 
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("LN1", "LN2")] <- "LN"
+reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                             "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+
+reinf3_df2$tissue_output <- NULL
+reinf3_df2$tissue_output[reinf3_df2$OUTPUT3 %in% c("BM", "LN", "S", "LIVER", "GUT", "LUNG")] <- "VIS"
+reinf3_df2$tissue_output[reinf3_df2$OUTPUT3 %in% c("SKIN")] <- "SKIN"
+
+
+reinf3_df2$group<- NULL
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+reinf3_df2$group[reinf3_df2$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+reinf3_df2$group2<- NULL
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+reinf3_df2$group2[reinf3_df2$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#sum FPs for each tissue type#
+reinf3_df3 <- reinf3_df2 %>%
+  group_by(INPUT_POOL, mouse_ID, tissue_output) %>%
+  mutate(GROUPED_FP = sum(FP))
+
+
+reinf3_df4 <- reinf3_df3 %>%
+  group_by(mouse_ID, tissue_output, tissue_type) %>%
+  mutate(TISSUE_TYPE_TOTAL_FP = sum(FP))
+
+
+#subset for skin in#
+reinf3_df4_skin_in <- subset(reinf3_df4, tissue_type == "SKIN" & group2 %in% c("1single_early", "1single_late"))
+reinf3_df4_skin_in2 <- subset(reinf3_df4, tissue_type == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
+
+#subset for skin out#
+reinf3_df4_skin_out <- subset(reinf3_df4, tissue_output == "SKIN" & group2 %in% c("1single_early", "1single_late"))
+reinf3_df4_skin_out2 <- subset(reinf3_df4, tissue_output == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
+
+#use mann whitney to compare totals for early vs chronic infection and single vs reinfection#
+#subset for skin01 to avoid replication within a mouse#
+#just comparing skin as a whole input source#
+df_p_val <- subset(reinf3_df4_skin_in, tissue_output != "SKIN" & INPUT2 == "SKIN01") %>%
+  group_by(OUTPUT3) %>%
+  rstatix::wilcox_test(GROUPED_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_EARLY_VS_LATE.csv")
+
+df_p_val <- subset(reinf3_df4_skin_in, tissue_output != "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "BM2") %>%
+  group_by(tissue_output) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_EARLY_VS_LATE2.csv")
+
+df_p_val <- subset(reinf3_df4_skin_in, tissue_output == "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "SKIN02") %>%
+  group_by(OUTPUT3, INPUT3) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_to_skin_EARLY_VS_LATE.csv")
+
+df_p_val <- subset(reinf3_df4_skin_in2, tissue_output != "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "BM2") %>%
+  group_by(tissue_output) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_single_VS_reinfection.csv")
+
+df_p_val <- subset(reinf3_df4_skin_in2, tissue_output != "SKIN" & INPUT2 == "SKIN01") %>%
+  group_by(OUTPUT3) %>%
+  rstatix::wilcox_test(GROUPED_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_single_VS_reinfection2.csv")
+
+df_p_val <- subset(reinf3_df4_skin_in2, tissue_output == "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "SKIN02") %>%
+  group_by(tissue_output) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_to_skin_single_VS_reinfection.csv")
+
+#no difference in skin to skin seeding in early vs late#
+#difference in reinfection vs single infection#
+#no difference in seeding from skin in early vs late or single vs reinfection when looking at different tissue types#
+#difference when we amalgamate vis tissues for seeding from skin early to late# #decreased in late#
+
+#just comparing skin as a whole output recipient#
+df_p_val <- subset(reinf3_df4_skin_out, tissue_type != "SKIN" & OUTPUT2 == "SKIN01") %>%
+  group_by(INPUT3) %>%
+  rstatix::wilcox_test(GROUPED_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_EARLY_VS_LATE.csv")
+
+df_p_val <- subset(reinf3_df4_skin_out, tissue_type != "SKIN" & OUTPUT2 == "SKIN01"& INPUT2 == "BM2") %>%
+  group_by(tissue_type) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_EARLY_VS_LATE2.csv")
+
+df_p_val <- subset(reinf3_df4_skin_out, tissue_type == "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "SKIN02") %>%
+  group_by(OUTPUT3, INPUT3) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_to_skin_EARLY_VS_LATE.csv")
+
+df_p_val <- subset(reinf3_df4_skin_out2, tissue_type != "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "BM2") %>%
+  group_by(tissue_type) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_single_VS_reinfection.csv")
+
+df_p_val <- subset(reinf3_df4_skin_out2, tissue_type != "SKIN" & OUTPUT2 == "SKIN01") %>%
+  group_by(INPUT3) %>%
+  rstatix::wilcox_test(GROUPED_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_single_VS_reinfection2.csv")
+
+df_p_val <- subset(reinf3_df4_skin_out2, tissue_type == "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "SKIN02") %>%
+  group_by(tissue_type) %>%
+  rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_to_skin_single_VS_reinfection.csv")
