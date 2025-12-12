@@ -1,0 +1,460 @@
+#validation of TSFP random simulation x3#
+
+#set working directory#
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+library(Seurat)
+library(fitdistrplus)
+
+#founder pop function#
+founder_pop <- function(output_count, input_count){
+  output_count = as.vector(output_count)
+  input_count = as.vector(input_count)
+  output_freq = output_count/sum(output_count)
+  input_freq = input_count/sum(input_count)
+  diffsq = sum(((output_freq - input_freq)^2)/(input_freq*(1-input_freq)))
+  fhat = (1/(length(input_count)))*diffsq
+  input_seq_total = sum(input_count)
+  output_seq_total = sum(output_count)
+  founderpop = 1/(fhat - (1/input_seq_total) - (1/output_seq_total))
+  founderpop
+}
+
+################################################################################
+#simulation 1#
+################################################################################
+
+#set a seed#
+set.seed(3)
+
+#load dataset for validation work#
+#TSFP validation via randomisation of samples#
+
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv")
+
+
+
+#subset for mice tissue samples only#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+barcode_counts2 <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #removes the samples completely#
+
+#remove B59#
+barcode_counts2 <- subset(barcode_counts2, X != c("TGGATCTTAGGACGCAACAT"))
+
+
+#remove barcode labels column#
+barcode_counts3 <- barcode_counts2[-c(1)]
+#randomise barcode counts#
+#this will keep the population structures the same but randomise which barcode each count is associated with for all samples#
+barcode_counts3 <- data.frame(apply(barcode_counts3, MARGIN = 2, function(x) sample(x, replace = F, size = length(x))))
+
+#new dataframe#
+barcode_counts4 <- barcode_counts3
+
+
+#save dataframe of random TSFP#
+write.csv(barcode_counts4, "Results/Validation/random_TSFP_matrix_simulated.csv")
+
+
+#empty dataframe for TSFP values#
+FP_df2 <- data.frame()
+#loop to run TSFP calculation for all pairs in randomised dataframe#
+for (tissue in barcode_counts4){
+  
+  df <- barcode_counts4
+  input_names <- colnames(df) #list of column names#
+  #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+  df <- subset(df, tissue > 0)
+  #new input tissue vector with 0 removed#
+  tissue2 <- tissue[tissue != 0]
+  #name input as tissue2 vector in the FP calculation#
+  FP_df <- apply(df, 2, function(col_in) {
+    return(founder_pop(col_in, tissue2))
+  })
+  FP_df2 <- rbind(FP_df2, FP_df) #add data to dataframe#
+  
+}
+colnames(FP_df2) <- names(df) #name columns
+colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+rownames(FP_df2) <- names(df) #name rows#
+rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+
+FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2)) #new column with input labels#
+
+###################################################################
+#FFP#
+
+#calculate fractional TSFP for INPUT POOL TSFPs in both directions#
+#minus one from other#
+FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+FP_mat2 <- as.matrix(FP_trans)
+
+FP_residual <- FP_mat - FP_mat2 #matrix minus its transposed matrix#
+FP_df_resid <- data.frame(FP_residual)
+rownames(FP_df_resid) <- rownames(FP_df2)
+FP_df_resid$INPUT_POOL <- rownames(FP_df_resid)
+#gives a signed value for FP for each combo#
+
+#remove values below 1 (so all negatives plus those which are negligible) to show only positive seeding#
+FFP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+
+#long format#
+#pivot data longer#
+
+df_long <- pivot_longer(
+  FP_df2,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FP"
+)
+
+df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL) #prefix inputs#
+df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)##prefix outputs#
+
+#change NA or negative values to 0 in new column#
+df_long$new_FP <- df_long$FP
+df_long$new_FP[df_long$FP <0] <- 0
+df_long$new_FP[df_long$FP == "NA"] <- 0
+
+#the new FFP after correction#
+#pivot data longer#
+df_long3 <- pivot_longer(
+  FFP_df_final,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP"
+)
+
+#change the NAs to 0s for plots#
+df_long3$FFP[is.na(df_long3$FFP)] <- 0
+
+#percentage above certain thresholds#
+PercentAbove(df_long3$FFP, 1)
+#1%
+
+PercentAbove(df_long3$FFP, 10)
+#0.34%
+
+PercentAbove(df_long3$FFP, 20)
+#3.360639e-03%
+
+PercentAbove(df_long3$FFP, 30)
+#8.4x10-4%
+
+PercentAbove(df_long3$FFP, 40)
+#8.4x10-4%
+
+PercentAbove(df_long3$FFP, 50)
+#8.4x10-4%
+
+PercentAbove(df_long3$FFP, 100)
+#0
+
+PercentAbove(df_long3$FFP, 150)
+#0
+PercentAbove(df_long3$FFP, 500)
+#0
+
+################################################################################
+#simulation 2#
+################################################################################
+
+#set a seed#
+set.seed(16)
+
+#load dataset for validation work#
+#TSFP validation via randomisation of samples#
+
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv")
+
+
+
+#subset for mice tissue samples only#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+barcode_counts2 <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #removes the samples completely#
+
+#remove B59#
+barcode_counts2 <- subset(barcode_counts2, X != c("TGGATCTTAGGACGCAACAT"))
+
+
+#remove barcode labels column#
+barcode_counts3 <- barcode_counts2[-c(1)]
+#randomise barcode counts#
+#this will keep the population structures the same but randomise which barcode each count is associated with for all samples#
+barcode_counts3 <- data.frame(apply(barcode_counts3, MARGIN = 2, function(x) sample(x, replace = F, size = length(x))))
+
+#new dataframe#
+barcode_counts4 <- barcode_counts3
+
+
+#save dataframe of random TSFP#
+write.csv(barcode_counts4, "Results/Validation/random_TSFP_matrix_simulated2.csv")
+
+
+#empty dataframe for TSFP values#
+FP_df2 <- data.frame()
+#loop to run TSFP calculation for all pairs in randomised dataframe#
+for (tissue in barcode_counts4){
+  
+  df <- barcode_counts4
+  input_names <- colnames(df) #list of column names#
+  #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+  df <- subset(df, tissue > 0)
+  #new input tissue vector with 0 removed#
+  tissue2 <- tissue[tissue != 0]
+  #name input as tissue2 vector in the FP calculation#
+  FP_df <- apply(df, 2, function(col_in) {
+    return(founder_pop(col_in, tissue2))
+  })
+  FP_df2 <- rbind(FP_df2, FP_df) #add data to dataframe#
+  
+}
+colnames(FP_df2) <- names(df) #name columns
+colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+rownames(FP_df2) <- names(df) #name rows#
+rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+
+FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2)) #new column with input labels#
+
+#pivot data longer#
+df_long <- pivot_longer(
+  FP_df2,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FP"
+)
+
+df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL) #prefix inputs#
+df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)##prefix outputs#
+
+#change NA or negative values to 0 in new column#
+df_long$new_FP <- df_long$FP
+df_long$new_FP[df_long$FP <0] <- 0
+df_long$new_FP[df_long$FP == "NA"] <- 0
+
+###################################################################
+#FFP#
+
+#calculate fractional TSFP for INPUT POOL TSFPs in both directions#
+#minus one from other#
+FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+FP_mat2 <- as.matrix(FP_trans)
+
+FP_residual <- FP_mat - FP_mat2 #matrix minus its transposed matrix#
+FP_df_resid <- data.frame(FP_residual)
+rownames(FP_df_resid) <- rownames(FP_df2)
+FP_df_resid$INPUT_POOL <- rownames(FP_df_resid)
+#gives a signed value for FP for each combo#
+
+#remove values below 1 (so all negatives plus those which are negligible) to show only positive seeding#
+FFP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+
+#the new FFP after correction#
+#pivot data longer#
+df_long3 <- pivot_longer(
+  FFP_df_final,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP"
+)
+
+#change the NAs to 0s for plots#
+df_long3$FFP[is.na(df_long3$FFP)] <- 0
+
+
+#percentage above certain thresholds#
+PercentAbove(df_long3$FFP, 1)
+#1%
+
+PercentAbove(df_long3$FFP, 10)
+#0.040%
+
+PercentAbove(df_long3$FFP, 20)
+#5.88x10-3%
+
+PercentAbove(df_long3$FFP, 30)
+#2.52x10-3%
+
+PercentAbove(df_long3$FFP, 40)
+#1.68x10-3%
+
+PercentAbove(df_long3$FFP, 50)
+#1.68x10-3%
+
+PercentAbove(df_long3$FFP, 100)
+#1.68x10-3%
+
+PercentAbove(df_long3$FFP, 150)
+#8.40x10-3%
+PercentAbove(df_long3$FFP, 500)
+#0
+
+
+################################################################################
+#simulation 3#
+################################################################################
+
+#set a seed#
+set.seed(42)
+
+#load dataset for validation work#
+#TSFP validation via randomisation of samples#
+
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv")
+
+
+
+#subset for mice tissue samples only#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+barcode_counts2 <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #removes the samples completely#
+
+#remove B59#
+barcode_counts2 <- subset(barcode_counts2, X != c("TGGATCTTAGGACGCAACAT"))
+
+
+#remove barcode labels column#
+barcode_counts3 <- barcode_counts2[-c(1)]
+#randomise barcode counts#
+#this will keep the population structures the same but randomise which barcode each count is associated with for all samples#
+barcode_counts3 <- data.frame(apply(barcode_counts3, MARGIN = 2, function(x) sample(x, replace = F, size = length(x))))
+
+#new dataframe#
+barcode_counts4 <- barcode_counts3
+
+
+#save dataframe of random TSFP#
+write.csv(barcode_counts4, "Results/Validation/random_TSFP_matrix_simulated3.csv")
+
+
+#empty dataframe for TSFP values#
+FP_df2 <- data.frame()
+#loop to run TSFP calculation for all pairs in randomised dataframe#
+for (tissue in barcode_counts4){
+  
+  df <- barcode_counts4
+  input_names <- colnames(df) #list of column names#
+  #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+  df <- subset(df, tissue > 0)
+  #new input tissue vector with 0 removed#
+  tissue2 <- tissue[tissue != 0]
+  #name input as tissue2 vector in the FP calculation#
+  FP_df <- apply(df, 2, function(col_in) {
+    return(founder_pop(col_in, tissue2))
+  })
+  FP_df2 <- rbind(FP_df2, FP_df) #add data to dataframe#
+  
+}
+colnames(FP_df2) <- names(df) #name columns
+colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+rownames(FP_df2) <- names(df) #name rows#
+rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+
+FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2)) #new column with input labels#
+
+#pivot data longer#
+df_long <- pivot_longer(
+  FP_df2,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FP"
+)
+
+df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL) #prefix inputs#
+df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)##prefix outputs#
+
+#change NA or negative values to 0 in new column#
+df_long$new_FP <- df_long$FP
+df_long$new_FP[df_long$FP <0] <- 0
+df_long$new_FP[df_long$FP == "NA"] <- 0
+
+###################################################################
+#FFP#
+
+#calculate fractional TSFP for INPUT POOL TSFPs in both directions#
+#minus one from other#
+FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+FP_mat2 <- as.matrix(FP_trans)
+
+FP_residual <- FP_mat - FP_mat2 #matrix minus its transposed matrix#
+FP_df_resid <- data.frame(FP_residual)
+rownames(FP_df_resid) <- rownames(FP_df2)
+FP_df_resid$INPUT_POOL <- rownames(FP_df_resid)
+#gives a signed value for FP for each combo#
+
+#remove values below 1 (so all negatives plus those which are negligible) to show only positive seeding#
+FFP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+
+
+#the new FFP after correction#
+#pivot data longer#
+df_long3 <- pivot_longer(
+  FFP_df_final,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP"
+)
+
+#change the NAs to 0s for plots#
+df_long3$FFP[is.na(df_long3$FFP)] <- 0
+
+
+
+#percentage above certain thresholds#
+PercentAbove(df_long3$FFP, 1)
+#1%
+
+PercentAbove(df_long3$FFP, 10)
+#0.043%
+
+PercentAbove(df_long3$FFP, 20)
+#3.4x10-3%
+
+PercentAbove(df_long3$FFP, 30)
+#2.5x10-3%
+
+PercentAbove(df_long3$FFP, 40)
+#1.7x10-3%
+
+PercentAbove(df_long3$FFP, 50)
+#1.7x10-3%
+
+PercentAbove(df_long3$FFP, 100)
+#8.4x10-4%
+
+PercentAbove(df_long3$FFP, 150)
+#8.4x10-4%
+PercentAbove(df_long3$FFP, 500)
+#0
