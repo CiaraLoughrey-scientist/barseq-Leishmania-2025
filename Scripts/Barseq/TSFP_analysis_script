@@ -161,3 +161,85 @@ df_p_val <- subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "
   rstatix::group_by(OUTPUT3, INPUT3) %>% 
   rstatix::wilcox_test(FP ~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_FP_by_tissue_reinf3_timeline2.csv")
+
+
+
+#reinfection analysis#
+
+#skin to viscera#
+ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 != "SKIN"), 
+       aes(y= log(FP), x = group)) + 
+  geom_jitter(aes(colour = group, shape = as.factor(mouse_ID), group = as.factor(mouse_ID)),
+              size = 2.5, stroke = 2,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = group), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  scale_shape_manual(values = c(15, 16, 17, 18, 19, 8, 15, 16, 17,18,19)) +
+  labs(title = "Viscera seeding from skin\n", colour = "Group:", x= "\nGroup", y = "log(TSFP)\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .2))) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  scale_x_discrete(labels = c("Single", "RI 2wk")) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 26),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
+  scale_colour_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
+  #scale_fill_manual(values = c("#21918c", "#3b528b", "#440154"), labels = c("4 weeks", "10 weeks", "12 weeks")) +
+  #scale_colour_manual(values = c("#21918c", "#3b528b", "#440154"), labels = c("4 weeks", "10 weeks", "12 weeks"))+
+  guides(fill="none", shape = "none", colour = "none") +
+  stat_pwc(aes(y=log(FP), x=group, group = group),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15,
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot_reinfections_amalgamated2.png"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot_reinfections_amalgamated2.pdf"), height = 6, width=6)
+
+
+#skin to skin#
+ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 %in% c("SKIN")), 
+       aes(y= FP, x = group)) + 
+  geom_jitter(aes(colour = group, shape = as.factor(mouse_ID)),
+              size = 2.5, stroke = 2,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  scale_shape_manual(values = c(15, 16, 17, 18, 19, 8, 15, 16, 17,18,19)) +
+  labs(title = "Skin to skin seeding\n", colour = "Mouse:", x= "\nGroup", y = "TSFP\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  scale_x_discrete(labels = c("Single", "RI 2wk")) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 30),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, hjust = 0.5, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
+  scale_colour_manual(values = c("#440154", "#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
+  guides(fill="none", shape = "none", colour = "none") +
+  stat_pwc(aes(y=FP, x=group, group = group),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15,
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.png"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.pdf"), height = 6, width=6)
+
+
