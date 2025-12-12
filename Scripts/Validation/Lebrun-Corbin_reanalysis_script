@@ -1,0 +1,206 @@
+#validation of TSFP and FFP#
+#lebrun corbin data#
+
+#set working directory#
+setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Network_analysis/Validation/lebrun_data")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+library(Seurat)
+library(fitdistrplus)
+
+#founder pop function#
+founder_pop <- function(output_count, input_count){
+  output_count = as.vector(output_count)
+  input_count = as.vector(input_count)
+  output_freq = output_count/sum(output_count)
+  input_freq = input_count/sum(input_count)
+  diffsq = sum(((output_freq - input_freq)^2)/(input_freq*(1-input_freq)))
+  fhat = (1/(length(input_count)))*diffsq
+  input_seq_total = sum(input_count)
+  output_seq_total = sum(output_count)
+  founderpop = 1/(fhat - (1/input_seq_total) - (1/output_seq_total))
+  founderpop
+}
+
+
+
+#############################################################################################################
+#############################################################################################################
+#comparing input for migration/FFP validation#
+#############################################################################################################
+#############################################################################################################
+
+#new load of dataframe#
+barcode_counts5 <- read.csv("Frequencies_M1toM13.csv")
+
+#remove low read samples as before#
+remove_columns_x <- sapply(subset(barcode_counts5, select = -c(barcode)), sum)
+remove_columns <- names(remove_columns_x[remove_columns_x < 50000])
+barcode_counts5[colnames(barcode_counts5) %in% remove_columns] <- NA 
+barcode_counts5 <- barcode_counts5[,setdiff(names(barcode_counts5), remove_columns)]
+
+
+barcode_counts6 <- barcode_counts5[-c(1)] #remove barcode list column#
+
+#new empty dataframe#
+FP_df5 <- data.frame()
+
+#loop TSFP through all pairs including the inputs this time#
+for (tissue in barcode_counts6){
+  
+  df <- barcode_counts6
+  input_names <- colnames(df) #list of column names#
+  #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+  df <- subset(df, tissue > 0)
+  #new input tissue vector with 0 removed#
+  tissue2 <- tissue[tissue != 0]
+  #name input as tissue2 vector in the FP calculation#
+  FP_df4 <- apply(df, 2, function(col_in) {
+    return(founder_pop(col_in, tissue2))
+  })
+  FP_df5 <- rbind(FP_df5, FP_df4)
+  
+}
+FP_df6 <- data.frame(FP_df5) #all pairwise comparisons in dataframe#
+
+
+colnames(FP_df6) <- names(df) #column names add#
+colnames(FP_df6) <- paste("OUTPUT_", colnames(FP_df6), sep = "")
+rownames(FP_df6) <- names(df) #rownames add#
+rownames(FP_df6) <- paste("INPUT_", rownames(FP_df6), sep = "")
+
+FP_df6 <- mutate(FP_df6, "INPUT_POOL" = rownames(FP_df6)) #add new column with input sample details#
+
+#pivot data longer#
+df_long2 <- pivot_longer(
+  FP_df6,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FP"
+)
+
+df_long2$INPUT2 <- gsub("INPUT_", "", df_long2$INPUT_POOL) #add input prefix#
+df_long2$OUTPUT2 <- gsub("OUTPUT_", "", df_long2$OUTPUT_POOL)#add output prefix#
+
+#change NA or negative to 0#
+df_long2$new_FP <- df_long2$FP
+df_long2$new_FP[df_long2$FP <0] <- 0
+df_long2$new_FP[df_long2$FP == "NA"] <- 0
+
+#vector for input sample names#
+INPUTS_VEC <- colnames(barcode_counts6[1:26])
+
+INPUTS_VEC2 <- paste("INPUT_", INPUTS_VEC, sep = "")
+
+OUTPUTS_VEC <- paste("OUTPUT_", INPUTS_VEC, sep = "")
+
+###################################################################
+#FFP#
+
+#calculate fractional TSFP for INPUT POOL TSFPs in both directions#
+#minus one from other#
+FP_mat <- as.matrix(subset(FP_df6, select = -c(INPUT_POOL)))
+FP_trans <- data.frame(t(subset(FP_df6, select = -c(INPUT_POOL))))
+FP_mat2 <- as.matrix(FP_trans)
+
+FP_residual <- FP_mat - FP_mat2 #matrix minus its transposed matrix#
+FP_df_resid <- data.frame(FP_residual)
+rownames(FP_df_resid) <- rownames(FP_df6)
+FP_df_resid$INPUT_POOL <- rownames(FP_df_resid)
+#gives a signed value for FP for each combo#
+
+#remove values below 1 (so all negatives plus those which are negligible) to show only positive seeding#
+FFP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+
+#long format#
+#pivot data longer#
+
+
+#the new FFP after correction#
+#pivot data longer#
+df_long3 <- pivot_longer(
+  FFP_df_final,
+  cols = starts_with("OUTPUT"),
+  names_to = "OUTPUT_POOL",
+  values_to = "FFP"
+)
+
+#change the NAs to 0s for plots#
+df_long3$FFP[is.na(df_long3$FFP)] <- 0
+
+
+df_long3$INPUT2 <- gsub("INPUT_", "", df_long3$INPUT_POOL) #add input prefix#
+df_long3$OUTPUT2 <- gsub("OUTPUT_", "", df_long3$OUTPUT_POOL)#add output prefix#
+
+df_long2$INPUT2 <- gsub("INPUT_", "", df_long2$INPUT_POOL) #add input prefix#
+df_long2$OUTPUT2 <- gsub("OUTPUT_", "", df_long2$OUTPUT_POOL)#add output prefix#
+
+#mouse IDs#
+
+df_long2$mouse_ID_in <- parse_number(df_long2$INPUT2)
+df_long2$mouse_ID_in[df_long2$INPUT2 %in% INPUTS_VEC] <- NA
+df_long3$mouse_ID_in <- parse_number(df_long3$INPUT2)
+df_long3$mouse_ID_in[df_long3$INPUT2 %in% INPUTS_VEC] <- NA
+
+df_long2$mouse_ID_out <- parse_number(df_long2$OUTPUT2)
+df_long2$mouse_ID_out[df_long2$OUTPUT2 %in% INPUTS_VEC] <- NA
+df_long3$mouse_ID_out <- parse_number(df_long3$OUTPUT2)
+df_long3$mouse_ID_out[df_long3$OUTPUT2 %in% INPUTS_VEC] <- NA
+
+#make a new FFP just for log based plotting which does not have 0 or negatives in it#
+df_long3$new_FFP <- df_long3$FFP
+df_long3$new_FFP[df_long3$new_FFP == 0] <- 0.9
+
+#plots#
+#paper supplementary figures#
+#histograms for thresholding#
+
+ggplot(subset(df_long3, direction != "NA"), aes(x = log(new_FFP))) + 
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = 3, size = 1, linetype = "dashed", colour = "red") +
+  labs(title = "Migration", x = "\nlog(FFP)", y = "Count\n") +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"), 
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~direction, nrow = 2, , labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
+ggsave("FFP_HISTOGRAM_lebrun2_facet.png", width = 6, height = 10)
+ggsave("FFP_HISTOGRAM_lebrun2_facet.pdf", width = 6, height = 10)
+
+ggplot(subset(df_long2, direction != "NA"), aes(x = log(new_FP))) + 
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = 3, size = 1, linetype = "dashed", colour = "red") +
+  labs(title = "Migration", x = "\nlog(TSFP)", y = "Count\n") +
+  theme_bw() + theme(legend.title = element_text(size = 20),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 28),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 16, colour = "black"),
+                     axis.text.y = element_text(size = 16, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"), 
+                     strip.text = element_text(size = 20)) +
+  facet_wrap(~direction, nrow = 2, , labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
+ggsave("TSFP_HISTOGRAM_lebrun2_facet.png", width = 6, height = 10)
+ggsave("TSFP_HISTOGRAM_lebrun2_facet.pdf", width = 6, height = 10)
