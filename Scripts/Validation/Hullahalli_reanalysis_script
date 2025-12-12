@@ -157,15 +157,6 @@ df_long3$mouse_ID_out[df_long3$OUTPUT2 %in% INPUTS_VEC] <- NA
 df_long3$new_FFP <- df_long3$FFP
 df_long3$new_FFP[df_long3$new_FFP == 0] <- 0.9
 
-#false vs true groups#
-df_long3$direction <- NULL
-df_long3$direction[!(df_long3$INPUT2 %in% INPUTS_VEC) & df_long3$OUTPUT2 %in% INPUTS_VEC] <- "2BACK"
-df_long3$direction[df_long3$INPUT2 %in% INPUTS_VEC & !(df_long3$OUTPUT2 %in% INPUTS_VEC)] <- "1TRUE"
-
-#false vs true groups#
-df_long2$direction <- NULL
-df_long2$direction[!(df_long2$INPUT2 %in% INPUTS_VEC) & df_long2$OUTPUT2 %in% INPUTS_VEC] <- "2BACK"
-df_long2$direction[df_long2$INPUT2 %in% INPUTS_VEC & !(df_long2$OUTPUT2 %in% INPUTS_VEC)] <- "1TRUE"
 
 #plots#
 
