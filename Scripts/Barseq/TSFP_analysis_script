@@ -15,14 +15,14 @@ reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajecto
 #add tissue groups#
 reinf3_df$INPUT3 <- reinf3_df$INPUT2
 reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
-                                               "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+                                         "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
 reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("BM1", "BM2")] <- "BM"
 reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("LN1", "LN2")] <- "LN"
 reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("LL", "LM", "LS")] <- "LIVER"
 
 reinf3_df$OUTPUT3 <- reinf3_df$OUTPUT2
 reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
-                                                             "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
 reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("BM1", "BM2")] <- "BM"
 reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("LN1", "LN2")] <- "LN"
 reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("LL", "LM", "LS")] <- "LIVER"                                  
@@ -157,11 +157,18 @@ ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin
 
 #mann whitney stats#
 
+#supp table 8#
 df_p_val <- subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(OUTPUT3, INPUT3) %>% 
   rstatix::wilcox_test(FP ~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_FP_by_tissue_reinf3_timeline2.csv")
 
+
+#supp table 12#
+df_p_val <- subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk")) %>%
+  rstatix::group_by(OUTPUT3, INPUT3) %>% 
+  rstatix::wilcox_test(FP ~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_FP_by_tissue_reinf3_reinfections_compared_to_single.csv")
 
 
 #reinfection analysis#
@@ -241,5 +248,3 @@ ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single
            method = "wilcox_test")
 ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.png"), height = 6, width=6)
 ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.pdf"), height = 6, width=6)
-
-
