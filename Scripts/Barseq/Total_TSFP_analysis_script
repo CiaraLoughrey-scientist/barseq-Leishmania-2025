@@ -70,43 +70,66 @@ reinf3_df4 <- reinf3_df3 %>%
   group_by(mouse_ID, tissue_output, tissue_type) %>%
   mutate(TISSUE_TYPE_TOTAL_FP = sum(FP))
 
+#sum FPs for each tissue output#
+reinf3_df5 <- reinf3_df4 %>%
+  group_by(OUTPUT3, mouse_ID, tissue_type) %>%
+  mutate(GROUPED_FP2 = sum(FP))
+
 
 #subset for skin in#
-reinf3_df4_skin_in <- subset(reinf3_df4, tissue_type == "SKIN" & group2 %in% c("1single_early", "1single_late"))
-reinf3_df4_skin_in2 <- subset(reinf3_df4, tissue_type == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
+reinf3_df4_skin_in <- subset(reinf3_df5, tissue_type == "SKIN" & group2 %in% c("1single_early", "1single_late"))
+reinf3_df4_skin_in2 <- subset(reinf3_df5, tissue_type == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
 
 #subset for skin out#
-reinf3_df4_skin_out <- subset(reinf3_df4, tissue_output == "SKIN" & group2 %in% c("1single_early", "1single_late"))
-reinf3_df4_skin_out2 <- subset(reinf3_df4, tissue_output == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
+reinf3_df4_skin_out <- subset(reinf3_df5, tissue_output == "SKIN" & group2 %in% c("1single_early", "1single_late"))
+reinf3_df4_skin_out2 <- subset(reinf3_df5, tissue_output == "SKIN" & group %in% c("1single_12wk", "2reinf_2wk"))
 
 #use mann whitney to compare totals for early vs chronic infection and single vs reinfection#
 #subset for skin01 to avoid replication within a mouse#
 #just comparing skin as a whole input source#
-df_p_val <- subset(reinf3_df4_skin_in, tissue_output != "SKIN" & INPUT2 == "SKIN01") %>%
+#supp table 7#
+#first need to unique so not duplicating for BM and LN data points#
+reinf3_df4_skin_in_sub <- unique(reinf3_df4_skin_in[-c(1:4, 6)])
+
+#subset for a single skin as all are same within each mouse for the grouped data analysis#
+df_p_val <- subset(reinf3_df4_skin_in_sub, tissue_output != "SKIN" & INPUT2 == "SKIN01") %>%
   group_by(OUTPUT3) %>%
-  rstatix::wilcox_test(GROUPED_FP~ group2, detailed = T, paired = F) 
+  rstatix::wilcox_test(GROUPED_FP2~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_EARLY_VS_LATE.csv")
 
+
+#not in paper#
 df_p_val <- subset(reinf3_df4_skin_in, tissue_output != "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "BM2") %>%
   group_by(tissue_output) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_EARLY_VS_LATE2.csv")
 
+#supp table 9#
 df_p_val <- subset(reinf3_df4_skin_in, tissue_output == "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "SKIN02") %>%
   group_by(OUTPUT3, INPUT3) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_to_skin_EARLY_VS_LATE.csv")
 
+#not in paper#
 df_p_val <- subset(reinf3_df4_skin_in2, tissue_output != "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "BM2") %>%
   group_by(tissue_output) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_single_VS_reinfection.csv")
 
+#supp table 14#
+df_p_val <- subset(reinf3_df4_skin_in2, tissue_output == "VIS" & tissue_type == "SKIN") %>%
+  group_by(tissue_output) %>%
+  rstatix::wilcox_test(FP~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_single_VS_reinfection_all_skin_to_vis.csv")
+
+
+#supp table 16#
 df_p_val <- subset(reinf3_df4_skin_in2, tissue_output != "SKIN" & INPUT2 == "SKIN01") %>%
   group_by(OUTPUT3) %>%
   rstatix::wilcox_test(GROUPED_FP~ group, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_single_VS_reinfection2.csv")
 
+#supp table 13#
 df_p_val <- subset(reinf3_df4_skin_in2, tissue_output == "SKIN" & INPUT2 == "SKIN01" & OUTPUT2 == "SKIN02") %>%
   group_by(tissue_output) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
@@ -118,31 +141,37 @@ write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_INPUT_to_skin_single
 #difference when we amalgamate vis tissues for seeding from skin early to late# #decreased in late#
 
 #just comparing skin as a whole output recipient#
+#supp table 6#
 df_p_val <- subset(reinf3_df4_skin_out, tissue_type != "SKIN" & OUTPUT2 == "SKIN01") %>%
   group_by(INPUT3) %>%
   rstatix::wilcox_test(GROUPED_FP~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_EARLY_VS_LATE.csv")
 
+#not in paper#
 df_p_val <- subset(reinf3_df4_skin_out, tissue_type != "SKIN" & OUTPUT2 == "SKIN01"& INPUT2 == "BM2") %>%
   group_by(tissue_type) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_EARLY_VS_LATE2.csv")
 
+#supp table 9#
 df_p_val <- subset(reinf3_df4_skin_out, tissue_type == "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "SKIN02") %>%
   group_by(OUTPUT3, INPUT3) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_to_skin_EARLY_VS_LATE.csv")
 
+#not in paper#
 df_p_val <- subset(reinf3_df4_skin_out2, tissue_type != "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "BM2") %>%
   group_by(tissue_type) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_single_VS_reinfection.csv")
 
+#supp table 15#
 df_p_val <- subset(reinf3_df4_skin_out2, tissue_type != "SKIN" & OUTPUT2 == "SKIN01") %>%
   group_by(INPUT3) %>%
   rstatix::wilcox_test(GROUPED_FP~ group, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats/mann_whitney_SKIN_OUTPUT_single_VS_reinfection2.csv")
 
+#supp table 13#
 df_p_val <- subset(reinf3_df4_skin_out2, tissue_type == "SKIN" & OUTPUT2 == "SKIN01" & INPUT2 == "SKIN02") %>%
   group_by(tissue_type) %>%
   rstatix::wilcox_test(TISSUE_TYPE_TOTAL_FP~ group, detailed = T, paired = F) 
