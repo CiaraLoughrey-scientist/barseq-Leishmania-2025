@@ -1,5 +1,6 @@
-#plots script for paper figures#
-#set working directory#
+#network analysis FP by tissue#
+#updated version which uses 20FFP cut off point for network analysis#
+
 setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
 
 #package loading#
@@ -9,186 +10,141 @@ library(ggpubr)
 library(vegan)
 
 
-#data load#
-reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/Reinf3_all_new_FP_data.csv")
-
-#add tissue groups#
-reinf3_df$INPUT3 <- reinf3_df$INPUT2
-reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
-                                         "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
-reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("BM1", "BM2")] <- "BM"
-reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("LN1", "LN2")] <- "LN"
-reinf3_df$INPUT3[reinf3_df$INPUT2 %in% c("LL", "LM", "LS")] <- "LIVER"
-
-reinf3_df$OUTPUT3 <- reinf3_df$OUTPUT2
-reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
-                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
-reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("BM1", "BM2")] <- "BM"
-reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("LN1", "LN2")] <- "LN"
-reinf3_df$OUTPUT3[reinf3_df$OUTPUT2 %in% c("LL", "LM", "LS")] <- "LIVER"                                  
+#load data#
+eigen_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
+in_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/in_degree_data_full_network.csv")
+out_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/out_degree_data_full_network.csv")
 
 
-#add animal groups#
-#add groups#
-reinf3_df$group <- NULL
-reinf3_df$group[reinf3_df$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
-reinf3_df$group[reinf3_df$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
-reinf3_df$group[reinf3_df$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
-reinf3_df$group[reinf3_df$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
-reinf3_df$group[reinf3_df$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+#add mouse ID#
+mice <- c(1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)
+eigen_r3 <- mutate(eigen_r3,
+                   mouse_ID = mice)
+in_deg_r3 <- mutate(in_deg_r3,
+                    mouse_ID = mice)
+out_deg_r3 <- mutate(out_deg_r3,
+                     mouse_ID = mice)
 
 #add groups#
-reinf3_df$group2 <- NULL
-reinf3_df$group2[reinf3_df$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
-reinf3_df$group2[reinf3_df$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
-reinf3_df$group2[reinf3_df$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
-reinf3_df$group2[reinf3_df$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
-reinf3_df$group2[reinf3_df$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+eigen_r3$group <- NULL
+eigen_r3$group[eigen_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+eigen_r3$group[eigen_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+eigen_r3$group[eigen_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+eigen_r3$group[eigen_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+eigen_r3$group[eigen_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+in_deg_r3$group <- NULL
+in_deg_r3$group[in_deg_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+in_deg_r3$group[in_deg_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+in_deg_r3$group[in_deg_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+in_deg_r3$group[in_deg_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+in_deg_r3$group[in_deg_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+out_deg_r3$group <- NULL
+out_deg_r3$group[out_deg_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_04wk"
+out_deg_r3$group[out_deg_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_10wk"
+out_deg_r3$group[out_deg_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_12wk"
+out_deg_r3$group[out_deg_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+out_deg_r3$group[out_deg_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+in_deg_r3$group2 <- NULL
+in_deg_r3$group2[in_deg_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+in_deg_r3$group2[in_deg_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+in_deg_r3$group2[in_deg_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+in_deg_r3$group2[in_deg_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+in_deg_r3$group2[in_deg_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+out_deg_r3$group2 <- NULL
+out_deg_r3$group2[out_deg_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+out_deg_r3$group2[out_deg_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+out_deg_r3$group2[out_deg_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+out_deg_r3$group2[out_deg_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+out_deg_r3$group2[out_deg_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
+
+#add groups#
+eigen_r3$group2 <- NULL
+eigen_r3$group2[eigen_r3$mouse_ID %in% c("1", "2", "3", "4", "5")] <- "1single_early"
+eigen_r3$group2[eigen_r3$mouse_ID %in% c("12", "13", "14")] <- "1single_late"
+eigen_r3$group2[eigen_r3$mouse_ID %in% c("21", "22", "23", "24", "25")] <- "1single_late"
+eigen_r3$group2[eigen_r3$mouse_ID %in% c("15", "16", "17", "18", "19", "20")] <- "2reinf_2wk"
+eigen_r3$group2[eigen_r3$mouse_ID %in% c( "6", "7", "8", "9", "10", "11")] <- "2reinf_2d"
 
 
-#plots#
 
-#seeding from skin#
+#long data#
+long_eigen_r3 <- pivot_longer(
+  eigen_r3,
+  cols = BM1:SKIN09,
+  names_to = "tissue",
+  values_to = "EC"
+)
 
-ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 != c("SKIN")), 
-       aes(y= FP, x = group2)) + 
-  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
-              size = 1.5, stroke = 1,
-              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
-  geom_boxplot(aes(fill = group2), alpha = 0.3,
-               outlier.shape = NA, 
-               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
-  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) +
-  labs(title = "Tissue-sourced seeding from skin\n", colour = "Infection phase:", x= "\nInfection phase", y = "TSFP\n") +
-  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
-  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
-  scale_x_discrete(labels = c("Early", "Chronic")) +
-  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
-                     plot.title = element_text(hjust = 0.5, size = 30),
-                     legend.title.position = "top",
-                     legend.position = "bottom",
-                     panel.border = element_blank(), 
-                     panel.grid.major = element_blank(),
-                     panel.grid.minor = element_blank(),
-                     axis.title = element_text(size=28), 
-                     axis.line = 
-                       element_line(colour = "black"), 
-                     axis.text.x = element_text(size = 20, hjust = 0.5, colour = "black"),
-                     axis.text.y = element_text(size = 20, colour = "black"),
-                     legend.text = element_text(size = 16, colour = "black"),
-                     strip.text.x = element_text(size = 20)) +
-  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
-  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
-  guides(fill="none", shape = "none") +
-  facet_wrap(~OUTPUT3, nrow = 2, scales = "free", labeller = as_labeller(
-    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin")))
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot3.png"), height = 10, width=8)
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot3.pdf"), height = 10, width=8)
+long_eigen_r3$tissue2 <- long_eigen_r3$tissue
+long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                                  "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("BM1", "BM2")] <- "BM"
+long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("LN1", "LN2")] <- "LN"
+long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("LL", "LM", "LS")] <- "LIVER"
 
 
-#seeding to skin#
-
-ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & OUTPUT3 %in% c("SKIN") & INPUT3 != c("SKIN")), 
-       aes(y= FP, x = group2)) + 
-  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
-              size = 1.5, stroke = 1,
-              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) +
-  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) + 
-  geom_boxplot(aes(fill = group2), alpha = 0.3,
-               outlier.shape = NA, 
-               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
-  labs(title = "Tissue-sourced seeding to skin\n", colour = "Infection phase:", x= "\nInfection phase", y = "TSFP\n") +
-  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
-  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
-  scale_x_discrete(labels = c("Early", "Chronic")) +
-  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
-                     plot.title = element_text(hjust = 0.5, size = 30),
-                     legend.title.position = "top",
-                     legend.position = "bottom",
-                     panel.border = element_blank(), 
-                     panel.grid.major = element_blank(),
-                     panel.grid.minor = element_blank(),
-                     axis.title = element_text(size=28), 
-                     axis.line = 
-                       element_line(colour = "black"), 
-                     axis.text.x = element_text(size = 20, hjust = 0.5, colour = "black"),
-                     axis.text.y = element_text(size = 20, colour = "black"),
-                     legend.text = element_text(size = 16, colour = "black"),
-                     strip.text.x = element_text(size = 20)) +
-  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
-  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
-  guides(fill="none", shape = "none") +
-  facet_wrap(~INPUT3, nrow = 2, scales = "free", labeller = as_labeller(
-    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin")))
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_output_plot3.png"), height = 10, width=8)
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_output_plot3.pdf"), height = 10, width=8)
+long_harm_r3 <- pivot_longer(
+  harm_r3,
+  cols = BM1:SKIN09,
+  names_to = "tissue",
+  values_to = "EC"
+)
 
 
-#skin to skin seeding#
-ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 %in% c("SKIN")), 
-       aes(y= FP, x = group2)) + 
-  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
-              size = 1.5, stroke = 1,
-              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) +
-  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) +
-  labs(title = "Skin to skin seeding\n", colour = "Mouse:", x= "\nInfection phase", y = "TSFP\n") +
-  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
-  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
-  scale_x_discrete(labels = c("Early", "Chronic")) +
-  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
-                     plot.title = element_text(hjust = 0.5, size = 30),
-                     legend.title.position = "top",
-                     legend.position = "bottom",
-                     panel.border = element_blank(), 
-                     panel.grid.major = element_blank(),
-                     panel.grid.minor = element_blank(),
-                     axis.title = element_text(size=28), 
-                     axis.line = 
-                       element_line(colour = "black"), 
-                     axis.text.x = element_text(size = 20, hjust = 0.5, colour = "black"),
-                     axis.text.y = element_text(size = 20, colour = "black"),
-                     legend.text = element_text(size = 16, colour = "black"),
-                     strip.text.x = element_text(size = 20)) +
-  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
-  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
-  guides(fill="none", shape = "none") 
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_plot2.png"), height = 6, width=6)
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_plot2.pdf"), height = 6, width=6)
+long_in_deg_r3 <- pivot_longer(
+  in_deg_r3,
+  cols = BM1:SKIN09,
+  names_to = "tissue",
+  values_to = "EC"
+)
 
-#mann whitney stats#
+long_in_deg_r3$tissue2 <- long_in_deg_r3$tissue
+long_in_deg_r3$tissue2[long_in_deg_r3$tissue %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                                    "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+long_in_deg_r3$tissue2[long_in_deg_r3$tissue %in% c("BM1", "BM2")] <- "BM"
+long_in_deg_r3$tissue2[long_in_deg_r3$tissue %in% c("LN1", "LN2")] <- "LN"
+long_in_deg_r3$tissue2[long_in_deg_r3$tissue %in% c("LL", "LM", "LS")] <- "LIVER"
 
-#supp table 8#
-df_p_val <- subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
-  rstatix::group_by(OUTPUT3, INPUT3) %>% 
-  rstatix::wilcox_test(FP ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats/mann_whitney_FP_by_tissue_reinf3_timeline2.csv")
+long_out_deg_r3 <- pivot_longer(
+  out_deg_r3,
+  cols = BM1:SKIN09,
+  names_to = "tissue",
+  values_to = "EC"
+)
 
+long_out_deg_r3$tissue2 <- long_out_deg_r3$tissue
+long_out_deg_r3$tissue2[long_out_deg_r3$tissue %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
+                                                      "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+long_out_deg_r3$tissue2[long_out_deg_r3$tissue %in% c("BM1", "BM2")] <- "BM"
+long_out_deg_r3$tissue2[long_out_deg_r3$tissue %in% c("LN1", "LN2")] <- "LN"
+long_out_deg_r3$tissue2[long_out_deg_r3$tissue %in% c("LL", "LM", "LS")] <- "LIVER"
 
-#supp table 12#
-df_p_val <- subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk")) %>%
-  rstatix::group_by(OUTPUT3, INPUT3) %>% 
-  rstatix::wilcox_test(FP ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats/mann_whitney_FP_by_tissue_reinf3_reinfections_compared_to_single.csv")
-
-
-#reinfection analysis#
-
-#skin to viscera#
-ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 != "SKIN"), 
-       aes(y= log(FP), x = group)) + 
-  geom_jitter(aes(colour = group, shape = as.factor(mouse_ID), group = as.factor(mouse_ID)),
+#plot#
+#eigen#
+ggplot(subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 != "SKIN"), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2),
               size = 2.5, stroke = 2,
               position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
-  geom_boxplot(aes(fill = group), alpha = 0.3,
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
                outlier.shape = NA, 
                width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
-  scale_shape_manual(values = c(15, 16, 17, 18, 19, 8, 15, 16, 17,18,19)) +
-  labs(title = "Viscera seeding from skin\n", colour = "Group:", x= "\nGroup", y = "log(TSFP)\n") +
-  scale_y_continuous(expand = expansion(mult = c(0, .2))) +
+  labs(title = "Eigen Centrality\n", colour = "Infection phase:", x= "\nInfection phase", y = "Eigen Centrality\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
   #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
-  scale_x_discrete(labels = c("Single", "RI 2wk")) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
   theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
-                     plot.title = element_text(hjust = 0.5, size = 26),
+                     plot.title = element_text(hjust = 0.5, size = 30),
                      legend.title.position = "top",
                      legend.position = "bottom",
                      panel.border = element_blank(), 
@@ -201,30 +157,34 @@ ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single
                      axis.text.y = element_text(size = 20, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"),
                      strip.text.x = element_text(size = 20)) +
-  scale_fill_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
-  scale_colour_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
-  #scale_fill_manual(values = c("#21918c", "#3b528b", "#440154"), labels = c("4 weeks", "10 weeks", "12 weeks")) +
-  #scale_colour_manual(values = c("#21918c", "#3b528b", "#440154"), labels = c("4 weeks", "10 weeks", "12 weeks"))+
-  guides(fill="none", shape = "none", colour = "none") +
-  stat_pwc(aes(y=log(FP), x=group, group = group),
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none") +
+  facet_wrap(~tissue2, nrow = 1, scale = "free_x", labeller = as_labeller(
+    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
            hide.ns = "p", vjust = -0.25, step.increase = 0.15,
            bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
            method = "wilcox_test")
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot_reinfections_amalgamated2.png"), height = 6, width=6)
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_input_plot_reinfections_amalgamated2.pdf"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot3.png"), height = 6, width=14)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot3.pdf"), height = 6, width=14)
 
 
-#skin to skin#
-ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single_12wk") & INPUT3 %in% c("SKIN") & OUTPUT3 %in% c("SKIN")), 
-       aes(y= FP, x = group)) + 
-  geom_jitter(aes(colour = group, shape = as.factor(mouse_ID)),
-              size = 2.5, stroke = 2,
+ggplot(subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 %in% c("SKIN")), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
+              size = 1.5, stroke = 1,
               position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
-  scale_shape_manual(values = c(15, 16, 17, 18, 19, 8, 15, 16, 17,18,19)) +
-  labs(title = "Skin to skin seeding\n", colour = "Mouse:", x= "\nGroup", y = "TSFP\n") +
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) +
+  labs(title = "Eigen Centrality\n", colour = "Infection phase:", x= "\nInfection phase", y = "Eigen Centrality\n") +
   scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
   #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
-  scale_x_discrete(labels = c("Single", "RI 2wk")) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
   theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
                      plot.title = element_text(hjust = 0.5, size = 30),
                      legend.title.position = "top",
@@ -235,16 +195,201 @@ ggplot(subset(reinf3_df, INPUT2 != OUTPUT2 & group %in% c("2reinf_2wk", "1single
                      axis.title = element_text(size=28), 
                      axis.line = 
                        element_line(colour = "black"), 
-                     axis.text.x = element_text(size = 20, hjust = 0.5, colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
                      axis.text.y = element_text(size = 20, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"),
                      strip.text.x = element_text(size = 20)) +
-  scale_fill_manual(values = c("#440154","#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
-  scale_colour_manual(values = c("#440154", "#35b779"), labels = c("Single Infection", "Re-infection 2 weeks")) +
-  guides(fill="none", shape = "none", colour = "none") +
-  stat_pwc(aes(y=FP, x=group, group = group),
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none", shape = "none") +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15, 
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot_skin2.png"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot_skin2.pdf"), height = 6, width=6)
+
+#in degree#
+
+ggplot(subset(long_in_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 %in% c("SKIN")), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
+              size = 1.5, stroke = 1,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) +
+  labs(title = "In degree\n", colour = "Infection phase:", x= "\nInfection phase", y = "In degree\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 30),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none", shape = "none") +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15, 
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_in_deg_FP_by_tissue_plot_skin2.png"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_in_deg_FP_by_tissue_plot_skin2.pdf"), height = 6, width=6)
+
+
+
+ggplot(subset(long_in_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 != "SKIN"), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2),
+              size = 2.5, stroke = 2,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  labs(title = "In degree\n", colour = "Infection phase:", x= "\nInfection phase", y = "In degree\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 30),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none") +
+  facet_wrap(~tissue2, nrow = 1, scale = "free_x", labeller = as_labeller(
+    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
            hide.ns = "p", vjust = -0.25, step.increase = 0.15,
            bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
            method = "wilcox_test")
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.png"), height = 6, width=6)
-ggsave(paste0(file = "Results/Figures_for_paper/reinf3_FP_by_tissue_skin_to_skin_reinfections.pdf"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_in_degree_FP_by_tissue_plot3.png"), height = 6, width=14)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_in_degree_FP_by_tissue_plot3.pdf"), height = 6, width=14)
+
+#out degree#
+
+ggplot(subset(long_out_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 %in% c("SKIN")), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2, shape = as.factor(mouse_ID)),
+              size = 1.5, stroke = 1,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  scale_shape_manual(values = c(1, 2, 3, 4, 15, 16, 17, 18, 10,7,6, 8)) +
+  labs(title = "Out degree\n", colour = "Infection phase:", x= "\nInfection phase", y = "Out degree\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 30),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none", shape = "none") +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15,
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out_deg_FP_by_tissue_plot_skin2.png"), height = 6, width=6)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out_deg_FP_by_tissue_plot_skin2.pdf"), height = 6, width=6)
+
+
+ggplot(subset(long_out_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & tissue2 != "SKIN"), 
+       aes(y= EC, x = group2)) + 
+  geom_jitter(aes(colour = group2),
+              size = 2.5, stroke = 2,
+              position = position_jitterdodge(dodge.width = .75, jitter.width = 0.1)) + 
+  geom_boxplot(aes(fill = group2), alpha = 0.3,
+               outlier.shape = NA, 
+               width = 0.75, lwd = 0.8, fatten = 2, show.legend = FALSE) +
+  labs(title = "Out degree\n", colour = "Infection phase:", x= "\nInfection phase", y = "Out degree\n") +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  scale_x_discrete(labels = c("Early", "Chronic")) +
+  #scale_x_discrete(expand = expansion(mult = c(0.15, 0))) +
+  #scale_x_discrete(labeller = as_labeller(
+  #c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  theme_bw() + theme(legend.title = element_text(size = 18, hjust = 0.5),
+                     plot.title = element_text(hjust = 0.5, size = 30),
+                     legend.title.position = "top",
+                     legend.position = "bottom",
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=28), 
+                     axis.line = 
+                       element_line(colour = "black"), 
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 16, colour = "black"),
+                     strip.text.x = element_text(size = 20)) +
+  scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
+  scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
+  guides(fill="none") +
+  facet_wrap(~tissue2, nrow = 1, scale = "free_x", labeller = as_labeller(
+    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
+  stat_pwc(aes(y=EC, x=group2, group = group2),
+           hide.ns = "p", vjust = -0.25, step.increase = 0.15,
+           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
+           method = "wilcox_test")
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out_degree_FP_by_tissue_plot3.png"), height = 6, width=14)
+ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out_degree_FP_by_tissue_plot3.pdf"), height = 6, width=14)
+
+#stats - mann whitney tests#
+
+#supp table 10#
+df_p_val <- subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
+  rstatix::group_by(tissue2) %>% 
+  rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_eigen_FP_by_Tissue_early_chronic.csv")
+
+#supp table 5#
+df_p_val <- subset(long_in_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
+  rstatix::group_by(tissue2) %>% 
+  rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_in_degree_FP_by_Tissue_early_chronic.csv")
+
+#supp table 4#
+df_p_val <- subset(long_out_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
+  rstatix::group_by(tissue2) %>% 
+  rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_out_degree_FP_by_Tissue_early_chronic.csv")
