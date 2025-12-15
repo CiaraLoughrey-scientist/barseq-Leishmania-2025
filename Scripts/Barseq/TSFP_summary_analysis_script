@@ -37,7 +37,7 @@ reinf3_df2$OUTPUT3 <- sub('^M[0-9]+', '', reinf3_df2$OUTPUT2)
 reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("BM1", "BM2")] <- "BM" 
 reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("LN1", "LN2")] <- "LN"
 reinf3_df2$OUTPUT3[reinf3_df2$OUTPUT3 %in% c("SKIN01", "SKIN02", "SKIN03", "SKIN04", "SKIN05", "SKIN06", "SKIN07",
-                                           "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
+                                             "SKIN08", "SKIN09", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN"
 
 reinf3_df2$tissue_output <- NULL
 reinf3_df2$tissue_output[reinf3_df2$OUTPUT3 %in% c("BM", "LN", "S", "LIVER", "GUT", "LUNG")] <- "VIS"
@@ -105,7 +105,7 @@ ggplot(subset(reinf3_df5, group %in% c("1single_04wk", "1single_10wk", "1single_
   scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
   scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
   scale_shape_discrete(labels = c("Skin", "Visceral")) +
-    facet_wrap(~tissue_output, scale = "free_y", labeller = as_labeller(
-      c(SKIN = "Skin", VIS = "Visceral"))) 
+  facet_wrap(~tissue_output, scale = "free_y", labeller = as_labeller(
+    c(SKIN = "Skin", VIS = "Visceral"))) 
 ggsave("Results/Figures_for_paper/Tissue_sourced_seeding_summary_plot2.png", width = 8, height = 6)
 ggsave("Results/Figures_for_paper/Tissue_sourced_seeding_summary_plot2.pdf", width = 8, height = 6)
