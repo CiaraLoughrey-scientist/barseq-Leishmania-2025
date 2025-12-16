@@ -1,8 +1,7 @@
 #####Simulation analysis#################
-#modified simulation for more appropriate use in paper#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation")
+setwd("") #add working directory details here#
 
 
 #package loading#
@@ -14,12 +13,13 @@ library(vegan)
 
 
 #load datasets#
+#these are in the simulation folder in Data_files#
 
-basic_sim <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation/sim_output_10_to_500_barcodes.csv")
-variance_sim <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation/sim_output_10_to_500_barcodes_variance.csv")
-clonal_rare_sim <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation/sim_output_10_to_500_barcodes_clonal_expansion_1in1000000.csv")
-clonal_medium_sim <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation/sim_output_10_to_500_barcodes_clonal_1in10000.csv")
-clonal_common_sim <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/MATLAB/MATLAB FOR PAPER SKIN/Simulation/sim_output_10_to_500_barcodes_clonal_1in100.csv")
+basic_sim <- read.csv("sim_output_10_to_500_barcodes.csv")
+variance_sim <- read.csv("sim_output_10_to_500_barcodes_variance.csv")
+clonal_rare_sim <- read.csv("sim_output_10_to_500_barcodes_clonal_expansion_1in1000000.csv")
+clonal_medium_sim <- read.csv("sim_output_10_to_500_barcodes_clonal_1in10000.csv")
+clonal_common_sim <- read.csv("sim_output_10_to_500_barcodes_clonal_1in100.csv")
 
 
 #add groups to each#
