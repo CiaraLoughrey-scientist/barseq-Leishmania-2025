@@ -1,7 +1,7 @@
 #network analysis FP by tissue#
 #updated version which uses 20FFP cut off point for network analysis#
 
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 #package loading#
 library(tidyverse)
@@ -11,9 +11,9 @@ library(vegan)
 
 
 #load data#
-eigen_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
-in_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/in_degree_data_full_network.csv")
-out_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/out_degree_data_full_network.csv")
+eigen_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
+in_deg_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/in_degree_data_full_network.csv")
+out_deg_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/out_degree_data_full_network.csv")
 
 
 #add mouse ID#
@@ -377,16 +377,20 @@ ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out
 #stats - mann whitney tests#
 
 
+
+#supp table 10#
 df_p_val <- subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_eigen_FP_by_Tissue_early_chronic.csv")
 
+#supp table 5#
 df_p_val <- subset(long_in_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
 write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_in_degree_FP_by_Tissue_early_chronic.csv")
 
+#supp table 4#
 df_p_val <- subset(long_out_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
