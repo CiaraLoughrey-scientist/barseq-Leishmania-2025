@@ -2,7 +2,7 @@
 #####FP for individual mice with other tissues as input#################
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 
 #package loading#
@@ -31,7 +31,7 @@ founder_pop <- function(output_count, input_count){
 
 #load dataset#
 
-barcode_counts <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Data/2025-JCM-002-barcodes.csv")
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv") #save dataset into Data folder#
 
 
 #subset for mice only and label the mouse ID#
@@ -369,11 +369,11 @@ for (mouse in mice_in_study){
 
 
 #save metrics data for all mice#
-#colnames(eigen_data) <- names(eigen$vector)
+
 write.csv(all_FP_data, "Results/FP_by_tissue/Reinf3_all_new_FP_data.csv")
 
 write.csv(eigen_data, "Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_MST.csv")
-#colnames(eigen_data2) <- names(eigen2$vector)
+
 write.csv(eigen_data2, "Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network.csv")
 write.csv(eigen_data3, "Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
 
