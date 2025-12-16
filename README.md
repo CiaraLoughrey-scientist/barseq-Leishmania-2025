@@ -15,7 +15,7 @@ IVIS folder contains the R script needed to analysis the ex vivo IVIS data and c
 
 Simulation folder contains the MATLAB scripts for running the simulation described in Figure 1. There are five scripts, one for the initial simulation, one for the simulation with growth rate variation and three for the three clonal expansion scenarios. Also included is the R script for the correlation analysis performed on the simulatied datasets and for producing the figure in the paper. 
 
-Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used pubished data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. 
+Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used published data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. 
 
 ### Data files
 
