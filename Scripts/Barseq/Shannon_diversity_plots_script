@@ -1,7 +1,7 @@
 #shannon index plots and stats#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 #package loading#
 library(tidyverse)
@@ -12,7 +12,7 @@ library(vegan)
 
 #load data#
 #data load#
-reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/Diversity_analysis/SHANNON_DATA_reinf3.csv")
+reinf3_df <- read.csv("Results/Diversity_analysis/SHANNON_DATA_reinf3.csv")
 
 
 #add animal groups#
