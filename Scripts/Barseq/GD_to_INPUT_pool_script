@@ -1,7 +1,7 @@
 #compute GD of all tissue samples from the original input pool#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 
 #package loading#
