@@ -2,7 +2,7 @@
 #GD calculation#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 
 #package loading#
@@ -26,7 +26,7 @@ chord_dist = function(count1, count2){
 
 #load dataset#
 
-barcode_counts <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Data/2025-JCM-002-barcodes.csv")
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv") #save dataset into Data folder#
 
 
 #subset for mice only and label the mouse ID#
