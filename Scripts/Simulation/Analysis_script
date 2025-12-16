@@ -375,6 +375,7 @@ data_stats <- rbind(data_stats, new_data)
 
 
 #save dataset#
+#supp table 1a#
 write.csv(data_stats, "Results/Correlation_values.csv")
 
 
@@ -695,5 +696,6 @@ data_stats <- rbind(data_stats, new_data)
 
 
 #save dataset#
+#supp table 1b#
 write.csv(data_stats, "Results/Correlation_values_below_5000FP.csv")
 
