@@ -1,7 +1,7 @@
 #validation of TSFP and FFP#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 
 #package loading#
@@ -36,7 +36,7 @@ founder_pop <- function(output_count, input_count){
 #############################################################################################################
 
 #load dataframe#
-barcode_counts5 <- read.csv("Data/2025-JCM-002-barcodes.csv")
+barcode_counts5 <- read.csv("Data/2025-JCM-002-barcodes.csv") #save dataset into Data folder#
 
 #remove low read samples as before#
 remove_columns <- sapply(subset(barcode_counts5, select = -c(X)), sum)
