@@ -5,11 +5,11 @@ library(fitdistrplus)
 library(tidyverse)
 
 #set directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_infection_analysis")
+setwd("") #add working directory details here#
 
 
 #load data#
-Infection_burden_b1_to_5<- read.csv("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_infection_analysis/Infection_burden_b1_to_5.csv")
+Infection_burden_b1_to_5<- read.csv("Data/Infection_burden_b1_to_5.csv") #save dataset into Data folder#
 
 #add timepoints#
 Infection_burden_b1_to_5_1hr <- subset(Infection_burden_b1_to_5, Timepoint_hr == 1)
