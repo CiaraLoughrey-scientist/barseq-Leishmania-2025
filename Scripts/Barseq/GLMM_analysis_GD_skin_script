@@ -121,17 +121,7 @@ skin_m2e
 #-1370 -1350    689    -1378
 
 
-#evaluate model parameters using pairwise anovas and AIC/BIC values for best fits#
-#anova(skin_m2, skin_m2a)
-#p< 2.2e-16#
-#anova(skin_m2, skin_m2b)
 
-#anova(skin_m2, skin_m2c)
-#p= 0.0001338#
-#anova(skin_m2, skin_m2d)
-#p= 0.000133#
-#anova(skin_m2, skin_m2e)
-# p < 2.2e-16#
 
 #gini comparison#
 GD_data_sub_skin_to_vis_gini <- GD_data_sub_skin_to_vis
