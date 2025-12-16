@@ -1,10 +1,10 @@
 #fitting distributions to in vitro parasite culture data#
 
 #set wd#
-setwd("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/IN_vitro_barcodes_analysis")
+setwd("") #add working directory details here#
 
 #load datasets#
-in_vitro_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_barcodes_analysis/In_vitro_datasets.csv")
+in_vitro_df <- read.csv("Data/In_vitro_datasets.csv") #save dataset into Data folder#
 
 #packages needed#
 library(tidyverse)
