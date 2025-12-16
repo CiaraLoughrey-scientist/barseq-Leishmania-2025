@@ -2,7 +2,7 @@
 #lebrun corbin data#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Network_analysis/Validation/lebrun_data")
+setwd("") #add working directory details here#
 
 
 #package loading#
