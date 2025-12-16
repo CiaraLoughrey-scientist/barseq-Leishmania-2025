@@ -1,7 +1,7 @@
 #GD plots and stats#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 #package loading#
 library(tidyverse)
@@ -10,7 +10,7 @@ library(ggpubr)
 library(vegan)
 
 #load data#
-reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/GD_data/Reinf3_all_GD_data.csv")
+reinf3_df <- read.csv("Results/GD_data/Reinf3_all_GD_data.csv")
 
 #groups and tissue IDs#
 reinf3_df$Tissue2 <- reinf3_df$Sample
@@ -171,6 +171,7 @@ ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin2.pdf"
 
 
 #mann whitney test#
+#supp table 3#
 df_p_val <- subset(reinf3_df, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & GD != 0) %>%
   rstatix::group_by(Tissue2, comparison2) %>% 
   rstatix::wilcox_test(GD ~ group2, detailed = T, paired = F) 
