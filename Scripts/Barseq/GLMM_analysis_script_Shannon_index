@@ -2,7 +2,7 @@
 #FINAL ANALYSIS VERSION#
 
 
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 #package loading#
 library(tidyverse)
@@ -14,7 +14,7 @@ library(tweedie)
 
 
 #load SI dataset#
-SI_data <-  read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/Diversity_analysis/SHANNON_DATA_reinf3.csv")
+SI_data <-  read.csv("Results/Diversity_analysis/SHANNON_DATA_reinf3.csv")
 
 #change mouse ID to factor#
 SI_data$mouse_ID <- as.factor(SI_data$mouse_ID)
