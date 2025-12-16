@@ -111,3 +111,11 @@ ggplot(subset(reinf3_df, group %in% c("1single_04wk", "1single_10wk", "1single_1
            method = "wilcox_test")
 ggsave(paste0(file = "Results/Figures_for_paper/reinf3_shannon_plot_skin2.png"), height = 6, width=6)
 ggsave(paste0(file = "Results/Figures_for_paper/reinf3_shannon_plot_skin2.pdf"), height = 6, width=6)
+
+#stats#
+#mann whitney test#
+#supp table 2#
+df_p_val <- subset(reinf3_df, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
+  rstatix::group_by(tissue) %>% 
+  rstatix::wilcox_test(Shannon_index ~ group2, detailed = T, paired = F) 
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_Shannon_early_vs_chronic.csv")
