@@ -1,7 +1,7 @@
 #network analysis FP by tissue#
 #updated version which uses 20FFP cut off point for network analysis#
 
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("")
 
 #package loading#
 library(tidyverse)
@@ -11,9 +11,9 @@ library(vegan)
 
 
 #load data#
-eigen_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
-in_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/in_degree_data_full_network.csv")
-out_deg_r3 <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/out_degree_data_full_network.csv")
+eigen_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/eigen_data_full_network_undirected.csv")
+in_deg_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/in_degree_data_full_network.csv")
+out_deg_r3 <- read.csv("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics/out_degree_data_full_network.csv")
 
 
 #add mouse ID#
