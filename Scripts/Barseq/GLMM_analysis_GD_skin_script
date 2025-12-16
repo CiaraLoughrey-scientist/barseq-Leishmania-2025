@@ -2,7 +2,7 @@
 #FINAL ANALYSIS VERSION#
 
 
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 #package loading#
 library(tidyverse)
@@ -14,7 +14,7 @@ library(tweedie)
 
 
 #load GD dataset#
-GD_data <-  read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/GD_data/Reinf3_all_GD_data.csv")
+GD_data <-  read.csv("Results/GD_data/Reinf3_all_GD_data.csv")
 
 #change mouse ID to factor#
 GD_data$mouse_ID <- as.factor(GD_data$mouse_ID)
