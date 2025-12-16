@@ -1,14 +1,13 @@
 #plot poisson parameters#
 
 #set wd#
-setwd("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_infection_analysis")
+setwd("") #add working directory details here#
 
 #pakcages#
 library(tidyverse)
 
 #load data#
-poisson_params <- read.csv("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_infection_analysis/poisson_params.csv")
-gamma_params <- read.csv("R:/rsrch/pmk2/lab/Ciara/Papers/Skin paper/Data/In_vitro_infection_analysis/gamma_params.csv")
+poisson_params <- read.csv("poisson_params.csv")
 
 
 #with error bars of 2x SD#
