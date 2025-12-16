@@ -1,7 +1,7 @@
 #####Shannon calculation for reinfection experiment#################
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("") #add working directory details here#
 
 
 #package loading#
@@ -11,7 +11,7 @@ library(ggpubr)
 library(vegan)
 
 #load data, reinf3#
-barcode_counts <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Data/2025-JCM-002-barcodes.csv")
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv") #save dataset into Data folder#
 
 
 #subset for mice only#
