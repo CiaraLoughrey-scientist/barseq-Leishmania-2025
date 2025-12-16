@@ -1,7 +1,7 @@
 #FP by tissue superseeder tissue analysis#
 
 
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS")
+setwd("")
 
 #package loading#
 library(tidyverse)
@@ -11,7 +11,7 @@ library(vegan)
 
 
 #load data#
-reinf3_df <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Trajectory analysis/SKIN_NETWORK_ANALYSIS/FINAL_ANALYSIS/Results/FP_by_tissue/Reinf3_all_new_FP_data.csv")
+reinf3_df <- read.csv("Results/FP_by_tissue/Reinf3_all_new_FP_data.csv")
 
 
 #find total FP seeded to visceral, skin and all tissues for each sample for each mouse at 4, 10 and 12 weeks#
