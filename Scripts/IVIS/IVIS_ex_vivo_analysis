@@ -1,6 +1,6 @@
 #ivis ex vivo organs analysis#
 #for all reinfection experiments#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Mice/Reinfection_ex_vivo_analysis_amalgamated")
+setwd("") #add working directory here#
 
 #packages#
 library(tidyverse)
@@ -8,7 +8,7 @@ library(ggsci)
 library(ggpubr)
 
 #load data file#
-data_file <- read.csv("R:/rsrch/pmk2/lab/Ciara/Experimental work/Mice/Reinfection_ex_vivo_analysis_amalgamated/amalagamated_data_all_reinf_expts_organs_ex_vivo.csv")
+data_file <- read.csv("Data/amalagamated_data_all_reinf_expts_organs_ex_vivo.csv") #save the dataset into a folder titled Data#
 
 #change controls to uninfected#
 data_file$Infection_1[data_file$Expt %in% c("Con")] <- "Un"
@@ -96,6 +96,7 @@ ggsave("IVIS_second_infection_plot_d14_reinfection_final_plot_just_reinf3.pdf", 
 
 
 #statistics#
+#supp table 11#
 df_p_val <- subset(data_file2, Expt %in% c("4") & mouse_sex %in% c("Female") & 
                      time_point_from_reinf != c("d02") & Infection_2 != c("none")) %>%
   rstatix::group_by(Organ) %>% 
