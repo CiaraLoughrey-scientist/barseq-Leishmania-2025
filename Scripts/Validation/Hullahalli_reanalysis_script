@@ -2,7 +2,7 @@
 #Hullahalli dataset#
 
 #set working directory#
-setwd("R:/rsrch/pmk2/lab/Ciara/Experimental work/Barseq/Network_analysis/Validation/hullahalli_data")
+setwd("") #add working directory details here#
 
 
 #package loading#
