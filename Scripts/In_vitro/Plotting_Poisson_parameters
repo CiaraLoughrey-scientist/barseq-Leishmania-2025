@@ -1,4 +1,5 @@
 #plot poisson parameters#
+#this script must be run after the Infection_Poisson_fitting_analysis script, as this generates the data frame used here#
 
 #set wd#
 setwd("") #add working directory details here#
