@@ -1,4 +1,6 @@
-dataset_label <- "2023-JCM-002"
+#this script creates the dataframe from the read counts in the RUST script. You must use the RUST script on the FASTQ data before running this script#
+
+dataset_label <- "2025-JCM-002"
 io <- list(
     "all_barcodes" = file.path("..", "metadata", "all-barcodes.txt"),
     "dataset_dir" = file.path("..", "data", dataset_label)
