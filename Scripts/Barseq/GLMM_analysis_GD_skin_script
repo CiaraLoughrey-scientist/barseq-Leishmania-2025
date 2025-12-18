@@ -1,5 +1,5 @@
 #fitting of GLMM using tweedy poisson-gamma compound distribution#
-#FINAL ANALYSIS VERSION#
+#you will need to have run the GD_calculation_script to run this one, as it uses datasets created by that script#
 
 
 setwd("") #add working directory details here#
