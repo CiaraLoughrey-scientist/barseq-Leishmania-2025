@@ -1,4 +1,5 @@
 #####Simulation analysis#################
+#this script uses the simulation results as the input dataframes#
 
 #set working directory#
 setwd("") #add working directory details here#
