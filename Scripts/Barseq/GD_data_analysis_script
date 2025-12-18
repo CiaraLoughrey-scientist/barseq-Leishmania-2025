@@ -1,4 +1,5 @@
 #GD plots and stats#
+#you must run the GD_calculation_script before running this one, as it relies on datasets created from that script#
 
 #set working directory#
 setwd("") #add working directory details here#
@@ -84,8 +85,8 @@ ggplot(subset(reinf3_df, comparison2 == "BM" & group %in% c("1single_04wk", "1si
            bracket.nudge.y = 0.1, tip.length = 0,  size = 0.5, label.size = 4.5, label = "p", 
            method = "wilcox_test")
 
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_BM_ONLY2.png", height = 6, width=6)
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_BM_ONLY2.pdf", height = 6, width=6)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_BM_ONLY.png", height = 6, width=6)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_BM_ONLY.pdf", height = 6, width=6)
 
 
 #skin to tissues#
@@ -126,8 +127,8 @@ ggplot(subset(reinf3_df, comparison2 == c("SKIN") & group %in% c("1single_04wk",
   facet_wrap(~Tissue2, nrow = 1, labeller = as_labeller(
     c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", SPLEEN = "Spleen", SKIN = "Skin")))
 
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin2.png", height = 6, width=18)
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin2.pdf", height = 6, width=18)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin.png", height = 6, width=18)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin.pdf", height = 6, width=18)
 
 
 #skin to skin#
@@ -166,8 +167,8 @@ ggplot(subset(reinf3_df, comparison2 == c("SKIN") & group %in% c("1single_04wk",
            bracket.nudge.y = 0.1, tip.length = 0,  size = 0.5, label.size = 4.5, label = "p", 
            method = "wilcox_test")
 
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin2.png", height = 6, width=6)
-ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin2.pdf", height = 6, width=6)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin.png", height = 6, width=6)
+ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin.pdf", height = 6, width=6)
 
 
 #mann whitney test#
@@ -175,4 +176,4 @@ ggsave(file = "Results/Figures_for_paper/reinf3_GD_plot_final_skin_to_skin2.pdf"
 df_p_val <- subset(reinf3_df, group %in% c("1single_04wk", "1single_10wk", "1single_12wk") & GD != 0) %>%
   rstatix::group_by(Tissue2, comparison2) %>% 
   rstatix::wilcox_test(GD ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats/mann_whitney_GD_reinf3_chronic_vs_early.csv")
+write.csv(df_p_val, file = "Results/Stats/mann_whitney_GD_chronic_vs_early.csv")
