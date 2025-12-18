@@ -1,4 +1,4 @@
-% parasites and bottlenecks simulation 
+% parasites and bottlenecks simulation in MATLAB
 
 % create output dataframe
 sim_output_data = [];
