@@ -1,4 +1,5 @@
-% parasites and bottlenecks simulation 
+% parasites and bottlenecks simulation in MATLAB
+
 % with growth rate variance
 % also clonal expansion of 1 in 10000 individuals (after bottleneck) at rate of 10x normal growth
 % create output dataframe
