@@ -1,5 +1,6 @@
 
 #####FP for individual mice with other tissues as input#################
+#you will need to run this before all other TSFP and FFP scripts, as they use the datasets created here#
 
 #set working directory#
 setwd("") #add working directory details here#
