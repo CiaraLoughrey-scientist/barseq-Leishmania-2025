@@ -1,5 +1,6 @@
 
 #GD calculation#
+#must be run before any other GD scripts, as these rely on datasets created here#
 
 #set working directory#
 setwd("") #add working directory details here#
