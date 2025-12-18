@@ -1,5 +1,5 @@
 #validation of TSFP and FFP#
-#campbell hotinger data#
+#campbell hotinger data used for this re-analysis#
 
 #set working directory#
 setwd("") #add working directory details here#
@@ -295,8 +295,8 @@ ggplot(subset(df_long3, INPUT2 != OUTPUT2 & INPUT2 %in% INPUTS_VEC & INOC == INO
                      axis.text.x = element_text(size = 16, colour = "black"),
                      axis.text.y = element_text(size = 16, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"))
-ggsave("FFP_HISTOGRAM_hotinger2.png", height = 6, width = 6)
-ggsave("FFP_HISTOGRAM_hotinger2.pdf", height = 6, width = 6)
+ggsave("FFP_HISTOGRAM_hotinger.png", height = 6, width = 6)
+ggsave("FFP_HISTOGRAM_hotinger.pdf", height = 6, width = 6)
 
 
 ggplot(subset(df_long3, INPUT2 != OUTPUT2 & !(INPUT2 %in% INPUTS_VEC) & OUTPUT2 %in% INPUTS_VEC), aes(x = log(new_FFP))) + 
@@ -315,8 +315,8 @@ ggplot(subset(df_long3, INPUT2 != OUTPUT2 & !(INPUT2 %in% INPUTS_VEC) & OUTPUT2 
                      axis.text.x = element_text(size = 16, colour = "black"),
                      axis.text.y = element_text(size = 16, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"))
-ggsave("FFP_HISTOGRAM_hotinger3.png", width = 6, height = 6)
-ggsave("FFP_HISTOGRAM_hotinger3.pdf", width = 6, height = 6) 
+ggsave("FFP_HISTOGRAM_hotinger2.png", width = 6, height = 6)
+ggsave("FFP_HISTOGRAM_hotinger2.pdf", width = 6, height = 6) 
 
 
 ggplot(subset(df_long3, direction != "NA"), aes(x = log(new_FFP))) + 
@@ -337,8 +337,8 @@ ggplot(subset(df_long3, direction != "NA"), aes(x = log(new_FFP))) +
                      legend.text = element_text(size = 16, colour = "black"), 
                      strip.text = element_text(size = 20)) +
   facet_wrap(~direction, nrow = 2, labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
-ggsave("FFP_HISTOGRAM_hotinger3_facet.png", width = 6, height = 10)
-ggsave("FFP_HISTOGRAM_hotinger3_facet.pdf", width = 6, height = 10) 
+ggsave("FFP_HISTOGRAM_hotinger_facet.png", width = 6, height = 10)
+ggsave("FFP_HISTOGRAM_hotinger_facet.pdf", width = 6, height = 10) 
 
 ggplot(subset(df_long2, direction != "NA"), aes(x = log(new_FP))) + 
   geom_histogram(binwidth = 0.1) +
@@ -358,8 +358,8 @@ ggplot(subset(df_long2, direction != "NA"), aes(x = log(new_FP))) +
                      legend.text = element_text(size = 16, colour = "black"), 
                      strip.text = element_text(size = 20)) +
   facet_wrap(~direction, nrow = 2, labeller = as_labeller(c("1TRUE" = "True: A to B", "2BACK" = "Back: B to A")))
-ggsave("TSFP_HISTOGRAM_hotinger3_facet.png", width = 6, height = 10)
-ggsave("TSFP_HISTOGRAM_hotinger3_facet.pdf", width = 6, height = 10) 
+ggsave("TSFP_HISTOGRAM_hotinger_facet.png", width = 6, height = 10)
+ggsave("TSFP_HISTOGRAM_hotinger_facet.pdf", width = 6, height = 10) 
 
 ######################################################################################
 ########################################################################################
