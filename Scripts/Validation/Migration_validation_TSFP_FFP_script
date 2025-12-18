@@ -404,8 +404,8 @@ ggplot(subset(all_mice_df, FFP > 20), aes(x = log(FFP), fill = group)) +
                      axis.text.x = element_text(size = 16, colour = "black"),
                      axis.text.y = element_text(size = 16, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"))
-ggsave("Results/Validation/histogram_background_FFP.png", width = 8, height = 8)
-ggsave("Results/Validation/histogram_background_FFP.pdf", width = 8, height = 8)
+ggsave("Results/Validation/density_background_FFP.png", width = 8, height = 8)
+ggsave("Results/Validation/density_background_FFP.pdf", width = 8, height = 8)
 
 #TSFP#
 ggplot(subset(all_mice_df), aes(x = log(new_FP), fill = group)) + 
@@ -425,8 +425,8 @@ ggplot(subset(all_mice_df), aes(x = log(new_FP), fill = group)) +
                      axis.text.x = element_text(size = 16, colour = "black"),
                      axis.text.y = element_text(size = 16, colour = "black"),
                      legend.text = element_text(size = 16, colour = "black"))
-ggsave("Results/Validation/histogram_background_TSFP.png", width = 8, height = 8)
-ggsave("Results/Validation/histogram_background_TSFP.pdf", width = 8, height = 8)
+ggsave("Results/Validation/density_background_TSFP.png", width = 8, height = 8)
+ggsave("Results/Validation/density_background_TSFP.pdf", width = 8, height = 8)
 
 
 
