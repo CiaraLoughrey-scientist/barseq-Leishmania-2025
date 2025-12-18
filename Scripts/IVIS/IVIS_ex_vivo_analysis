@@ -37,7 +37,7 @@ data_file$flux_minus_bkrd <- data_file$Total.Flux_p.s - data_file$bkrd
 
 data_file$time_point_from_reinf[is.na(data_file$time_point_from_reinf)] <- "d0"
 
-#only experiment 4 data#
+#only experiment 4 data is included in this paper so subset for this#
 data_file2 <- subset(data_file, Expt %in% c("4"))
 
 
@@ -90,8 +90,8 @@ IVIS_plot <- IVIS_plot + stat_pwc(aes(y=log_flux_minus_bkrd, x=Organ, group = In
                                   bracket.nudge.y = 0.1, tip.length = 0,  size = 0.7, label.size = 4, label = "p", 
                                   method = "wilcox_test")
 IVIS_plot
-ggsave("IVIS_second_infection_plot_d14_reinfection_final_plot_just_reinf3.png", width = 6, height = 6)
-ggsave("IVIS_second_infection_plot_d14_reinfection_final_plot_just_reinf3.pdf", width = 6, height = 6)
+ggsave("IVIS_second_infection_plot_d14.png", width = 6, height = 6)
+ggsave("IVIS_second_infection_plot_d14.pdf", width = 6, height = 6)
 
 
 
@@ -103,4 +103,4 @@ df_p_val <- subset(data_file2, Expt %in% c("4") & mouse_sex %in% c("Female") &
   rstatix::wilcox_test(flux_minus_bkrd ~ Infection_1, detailed = T, paired = F) 
 
 #save file#
-write.csv(df_p_val, file = "mann_whitney_IVIS_organs_reinf3.csv")
+write.csv(df_p_val, file = "mann_whitney_IVIS_organs_second_infection_d14.csv")
