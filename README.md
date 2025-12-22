@@ -5,17 +5,17 @@ A repository containing all scripts and data for the 2025 paper
 
 Scripts for the analysis included within the paper above.
 
-Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. These scripts were developed with Alastair Droop and are also included in his University of York Data Science repository at: https://github.com/uoy-research/fqbarcode alongside further relevant information. 
+Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. These scripts were developed with Alastair Droop and are also included in his University of York Data Science repository at: https://github.com/uoy-research/fqbarcode alongside further relevant information. The output data from the Rust script is required in order to run the R script. Raw FASTQ data is available at NCBI BioProject with Project ID PRJNA1392034 (http://www.ncbi.nlm.nih.gov/bioproject/1392034). 
 
-Barseq folder contains all analysis scripts for the analysis of the barcode counts dataset, covering Figures 2 to 6 and Extended Data Figures 3-7.
+Barseq folder contains all analysis scripts for the analysis of the barcode counts dataset, covering Figures 2 to 6 and Extended Data Figures 3-7. The scripts titled "GD_calculation_script", "TSFP_FFP_calculations_script" and "Shannon_index_analysis_script" need to be run before the other scripts, as the others rely on outputs from these.
 
-In_vitro folder contains the R scripts for analysis of the in vitro infection data (Poisson fitting, histogram plots and Poisson plots) in Figure 1. It also contains the in vitro parasite culture data analysis R script, also in Figure 1. 
+In_vitro folder contains the R scripts for analysis of the in vitro infection data (Poisson fitting, histogram plots and Poisson plots) in Figure 1. It also contains the in vitro parasite culture data analysis R script, also in Figure 1. The "Infection_Poisson_fitting_analysis" script needs to be run before the "Plotting_Poisson_parameters" script. 
 
 IVIS folder contains the R script needed to analysis the ex vivo IVIS data and create the figures in Figure 6 relating to this. 
 
-Simulation folder contains the MATLAB scripts for running the simulation described in Figure 1. There are five scripts, one for the initial simulation, one for the simulation with growth rate variation and three for the three clonal expansion scenarios. Also included is the R script for the correlation analysis performed on the simulatied datasets and for producing the figure in the paper. 
+Simulation folder contains the MATLAB scripts for running the simulation described in Figure 1. There are five scripts, one for the initial simulation, one for the simulation with growth rate variation and three for the three clonal expansion scenarios. Also included is the R script for the correlation analysis performed on the simulatied datasets and for producing the figure in the paper. If you do not wish to run the MATLAB code, the generated CSV files are available in the Data_files folder, so you can run just the "Analysis_script" on these files instead. 
 
-Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used published data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. 
+Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used published data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. The other two scripts "Migration_validation_TSFP_FFP_script" and "Randomised_simulations_validation_script" use the 2025-JCM-002-barcodes.csv dataset in the Barseq folder inside Data_files.
 
 ### Data files
 
@@ -33,7 +33,7 @@ Simulation contains the MATLAB simulation output datasets, covered in Figure 1.
 
 You will need to save the datasets into a folder called Data (or alter the scripts accordingly) to run the scripts without errors. 
 
-Please ensure you run scripts in the correct order, as some scripts depend on results from prior scripts in order to run. See comments at start of scripts for details.
+Please ensure you run scripts in the correct order, as some scripts depend on results from prior scripts in order to run. See comments above and at start of individual scripts for details.
 
 R may ask for permission to create relevant directories to save results into whilst running these scripts. 
 
