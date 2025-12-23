@@ -4,6 +4,12 @@
 #set working directory#
 setwd("") #add working directory details here#
 
+#create subdirectories#
+dir.create("Results")
+dir.create("Results/Figures_for_paper")
+dir.create("Results/Stats")
+
+
 #package loading#
 library(tidyverse)
 library(ggsci)
