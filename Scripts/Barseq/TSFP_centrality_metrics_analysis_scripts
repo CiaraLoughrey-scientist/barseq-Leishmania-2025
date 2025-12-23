@@ -91,15 +91,6 @@ long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("BM1", "BM2")] <- "BM"
 long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("LN1", "LN2")] <- "LN"
 long_eigen_r3$tissue2[long_eigen_r3$tissue %in% c("LL", "LM", "LS")] <- "LIVER"
 
-
-long_harm_r3 <- pivot_longer(
-  harm_r3,
-  cols = BM1:SKIN09,
-  names_to = "tissue",
-  values_to = "EC"
-)
-
-
 long_in_deg_r3 <- pivot_longer(
   in_deg_r3,
   cols = BM1:SKIN09,
