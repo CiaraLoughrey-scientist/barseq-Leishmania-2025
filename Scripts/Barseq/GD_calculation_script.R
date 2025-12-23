@@ -4,7 +4,12 @@
 
 #set working directory#
 setwd("") #add working directory details here#
-
+#create subdirectories#
+dir.create("Results")
+dir.create("Results/GD_heatmaps")
+dir.create("Results/GD_networks")
+dir.create("Results/GD_data")
+dir.create("Results/GD_metrics")
 
 #package loading#
 library(tidyverse)
@@ -147,12 +152,12 @@ for (mouse in mice_in_study){
                        axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
                        axis.text.y = element_text(size = 16, colour = "black"),
                        legend.text = element_text(size = 16, colour = "black"))
-  ggsave(paste0(file = "Results/GD_heatmaps/Reinf3_heatmaps/GD_dist_heatmap_",paste0("mouse_", mouse),".png"), height = 10, width=10)
-  ggsave(paste0(file = "Results/GD_heatmaps/Reinf3_heatmaps/GD_dist_heatmap_",paste0("mouse_", mouse),".pdf"), height = 10, width=10)
+  ggsave(paste0(file = "Results/GD_heatmaps/GD_dist_heatmap_",paste0("mouse_", mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "Results/GD_heatmaps/GD_dist_heatmap_",paste0("mouse_", mouse),".pdf"), height = 10, width=10)
   
 
   #save GD data#
-  write.csv(chord_df_data, file = paste0("Results/GD_data/Reinf3_data/GD_dist_","mouse_", mouse,".csv"))
+  write.csv(chord_df_data, file = paste0("Results/GD_data/GD_dist_","mouse_", mouse,".csv"))
   
   df_long <- mutate(df_long, 
                     mouse_ID = mouse)
@@ -218,8 +223,8 @@ for (mouse in mice_in_study){
           axis.ticks.y=element_blank(),
           axis.title = element_blank()) +
     guides (edge_width = "none", edge_alpha = "none")
-  ggsave(paste0("Results/GD_networks/Reinf3_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
-  ggsave(paste0("Results/GD_networks/Reinf3_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  ggsave(paste0("Results/GD_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("Results/GD_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
   
   #mst#
   
@@ -269,8 +274,8 @@ for (mouse in mice_in_study){
           axis.title = element_blank()) +
     guides (edge_width = "none", edge_alpha = "none", colour = "none")
   
-  ggsave(paste0("Results/GD_networks/Reinf3_networks/mst_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
-  ggsave(paste0("Results/GD_networks/Reinf3_networks/mst_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  ggsave(paste0("Results/GD_networks/mst_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("Results/GD_networks/mst_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
   
   #metrics to save as data files#
   
@@ -289,13 +294,13 @@ for (mouse in mice_in_study){
 }
 
 #save data#
-write.csv(eigen_data, "Results/GD_metrics/Reinf3_metrics/eigen_data.csv")
+write.csv(eigen_data, "Results/GD_metrics/eigen_data.csv")
 
-write.csv(bet_data, "Results/GD_metrics/Reinf3_metrics/bet_data.csv")
+write.csv(bet_data, "Results/GD_metrics/bet_data.csv")
 
-write.csv(harm_data, "Results/GD_metrics/Reinf3_metrics/harm_data.csv")
+write.csv(harm_data, "Results/GD_metrics/harm_data.csv")
 
-write.csv(degree_data, "Results/GD_metrics/Reinf3_metrics/degree_data.csv")
+write.csv(degree_data, "Results/GD_metrics/degree_data.csv")
 
 write.csv(all_GD_data, "Results/GD_data/Reinf3_all_GD_data.csv")
 
