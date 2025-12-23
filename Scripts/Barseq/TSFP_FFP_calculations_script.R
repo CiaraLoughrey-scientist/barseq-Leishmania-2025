@@ -5,6 +5,14 @@
 #set working directory#
 setwd("") #add working directory details here#
 
+#create subdirectories#
+dir.create("Results")
+dir.create("Results/FP_by_tissue")
+dir.create("Results/FP_by_tissue/new_FP_by_tissue_OCT2025")
+dir.create("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_heatmaps")
+dir.create("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_networks")
+dir.create("Results/FP_by_tissue/new_FP_by_tissue_OCT2025/FP_network_metrics")
+
 
 #package loading#
 library(tidyverse)
