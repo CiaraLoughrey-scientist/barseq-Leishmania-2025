@@ -1,5 +1,5 @@
 # barseq-Leishmania-2025
-A repository containing all scripts and data for the 2025 paper
+A repository containing all scripts and data for the 2025 paper "Bi-directional highways and super-seeder tissues underpin parasite dissemination in experimental visceral leishmaniasis", by Loughrey et al. All R scripts were developed and run using R version 4.4.3. 
 
 ### Scripts
 
