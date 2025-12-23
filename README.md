@@ -31,6 +31,8 @@ Simulation contains the MATLAB simulation output datasets, covered in Figure 1.
 
 ### Notes
 
+Please ensure you add your working directory details to the scripts before running. 
+
 You will need to save the datasets into a folder called Data (or alter the scripts accordingly) to run the scripts without errors. 
 
 Please ensure you run scripts in the correct order, as some scripts depend on results from prior scripts in order to run. See comments above and at start of individual scripts for details.
