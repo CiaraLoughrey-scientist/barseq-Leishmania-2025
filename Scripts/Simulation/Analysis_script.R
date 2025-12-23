@@ -4,6 +4,8 @@
 #set working directory#
 setwd("") #add working directory details here#
 
+#create subdirectory#
+dir.create("Results")
 
 #package loading#
 library(tidyverse)
