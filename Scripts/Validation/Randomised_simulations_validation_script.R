@@ -3,6 +3,9 @@
 #set working directory#
 setwd("") #add working directory details#
 
+#create sub-directories#
+dir.create("Results")
+dir.create("Results/Validation")
 
 #package loading#
 library(tidyverse)
