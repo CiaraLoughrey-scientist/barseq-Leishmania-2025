@@ -4,6 +4,11 @@
 
 setwd("") #add working directory details here#
 
+#creating subdirectories#
+dir.create("Results")
+dir.create("Results/Figures_for_paper")
+dir.create("Results/Stats_centrality")
+
 #package loading#
 library(tidyverse)
 library(ggsci)
@@ -153,11 +158,7 @@ ggplot(subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1sing
   scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
   guides(fill="none") +
   facet_wrap(~tissue2, nrow = 1, scale = "free_x", labeller = as_labeller(
-    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) +
-  stat_pwc(aes(y=EC, x=group2, group = group2),
-           hide.ns = "p", vjust = -0.25, step.increase = 0.15,
-           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
-           method = "wilcox_test")
+    c(BM = "Bone Marrow", GUT = "Gut", LIVER = "Liver", LN =  "Lymph Node", LUNG = "Lung", S = "Spleen", SKIN = "Skin"))) 
 ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot.png"), height = 6, width=14)
 ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot.pdf"), height = 6, width=14)
 
@@ -193,11 +194,7 @@ ggplot(subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1sing
                      strip.text.x = element_text(size = 20)) +
   scale_fill_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic")) +
   scale_colour_manual(values = c("#21918c", "#440154"), labels = c("Early", "Chronic"))+
-  guides(fill="none", shape = "none") +
-  stat_pwc(aes(y=EC, x=group2, group = group2),
-           hide.ns = "p", vjust = -0.25, step.increase = 0.15, 
-           bracket.nudge.y = 0.1, tip.length = 0, size = 0.5, label.size = 5, label = "p", 
-           method = "wilcox_test")
+  guides(fill="none", shape = "none") 
 ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot_skin.png"), height = 6, width=6)
 ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_eigen_FP_by_tissue_plot_skin.pdf"), height = 6, width=6)
 
@@ -372,18 +369,19 @@ ggsave(paste0(file = "Results/Figures_for_paper/FP_tissue_metrics_new/reinf3_out
 
 #supp table 10#
 df_p_val <- subset(long_eigen_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
+  subset(tissue2 != "GUT") %>% #exclude gut as only one sample for one group so not enough statistical power for this tissue#
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_eigen_FP_by_Tissue_early_chronic.csv")
+write.csv(df_p_val, file = "Results/Stats_centrality/mann_whitney_eigen_FP_by_Tissue_early_chronic.csv")
 
 #supp table 5#
 df_p_val <- subset(long_in_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_in_degree_FP_by_Tissue_early_chronic.csv")
+write.csv(df_p_val, file = "Results/Stats_centrality/mann_whitney_in_degree_FP_by_Tissue_early_chronic.csv")
 
 #supp table 4#
 df_p_val <- subset(long_out_deg_r3, group %in% c("1single_04wk", "1single_10wk", "1single_12wk")) %>%
   rstatix::group_by(tissue2) %>% 
   rstatix::wilcox_test(EC ~ group2, detailed = T, paired = F) 
-write.csv(df_p_val, file = "Results/Stats_centrality_new/mann_whitney_out_degree_FP_by_Tissue_early_chronic.csv")
+write.csv(df_p_val, file = "Results/Stats_centrality/mann_whitney_out_degree_FP_by_Tissue_early_chronic.csv")
