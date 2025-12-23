@@ -4,6 +4,9 @@
 
 setwd("") #add working directory details here#
 
+#create subdirectories#
+dir.create("Results/Stats")
+
 #package loading#
 library(tidyverse)
 library(ggsci)
