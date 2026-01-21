@@ -31,14 +31,32 @@ Simulation contains the MATLAB simulation output datasets, covered in Figure 1.
 
 ### Notes
 
+The scripts should download as R files and run in any application which can run R-based code. 
+
 Please ensure you add your working directory details to the scripts before running. 
 
-You will need to save the datasets into a folder called Data (or alter the scripts accordingly) to run the scripts without errors. 
+You will need to save the datasets into a folder called Data (or alter the scripts accordingly) to run the scripts without errors. These should all save as CSV files when downloaded. 
+
+Time for downloading scripts and data is minimal on a standard computer. Time to run all of the code in full should amount to less than four hours on a standard computer. 
 
 Please ensure you run scripts in the correct order, as some scripts depend on results from prior scripts in order to run. See comments above and at start of individual scripts for details.
 
 R may ask for permission to create relevant directories to save results into whilst running these scripts. 
 
+We used the following packages for our analysis:
+
+* tidyverse 2.0.0
+* ggraph 2.2.1
+* ggpubr 0.6.0
+* igraph 2.1.4
+* fitdistrplus 1.2-2
+* Seurat 5.3.99.9000
+* rstatix 0.7.2
+* cplm 0.7-12.1
+* tweedie 2.3.5
+* vegan 2.6-10
+
+We cannot validate that the code will run correctly on other versions without testing.
 
 ### References
 
