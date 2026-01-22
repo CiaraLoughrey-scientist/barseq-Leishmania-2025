@@ -8,14 +8,14 @@ Scripts for the analysis included within the paper above.
 Processing folder contains the initial barcode extraction Rust script, used on the raw FASTQ files, and the subseqnent R script for counting the reads and creating the data table for downstream analysis. These scripts were developed with Alastair Droop and are also included in his University of York Data Science repository at: https://github.com/uoy-research/fqbarcode alongside further relevant information. The output data from the Rust script is required in order to run the R script. Raw FASTQ data is available at NCBI BioProject with Project ID PRJNA1392034 (http://www.ncbi.nlm.nih.gov/bioproject/1392034). Dependency details for the Rust script are as follows:
 * Rust version = "0.2.1"; edition = "2021"
 * Dependencies:
-    *regex = "1.7.1"
-    *rand = "0.8.5"
-    *simple-eyre = "0.3.1"
-    *clap = { version = "4.1.10", features = ["derive", "usage"] }
-    *stderrlog = "0.5.4"
-    *log = "0.4.17"
-    *flate2 = "1.0.25"
-    *levenshtein = "1.0.5"
+....*regex = "1.7.1"
+....*rand = "0.8.5"
+....*simple-eyre = "0.3.1"
+....*clap = { version = "4.1.10", features = ["derive", "usage"] }
+....*stderrlog = "0.5.4"
+....*log = "0.4.17"
+....*flate2 = "1.0.25"
+....*levenshtein = "1.0.5"
 
 Barseq folder contains all analysis scripts for the analysis of the barcode counts dataset, covering Figures 2 to 6 and Extended Data Figures 3-7. The scripts titled "GD_calculation_script", "TSFP_FFP_calculations_script" and "Shannon_index_analysis_script" need to be run before the other scripts, as the others rely on outputs from these.
 
