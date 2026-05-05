@@ -1,0 +1,34 @@
+#set working directory#
+setwd("")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+
+
+
+#load data#
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv")
+
+#filtering#
+barcode_counts <- subset(barcode_counts, (subset = X != "TGGATCTTAGGACGCAACAT"))
+
+#count number of barcodes above 0 for each sample and create a table#
+#first remove barcode column and INPUTS#
+barcode_counts1 <- barcode_counts[-c(1:7)]
+
+#long data#
+barcodes_long <- pivot_longer(barcode_counts,
+                              names_to = "samples",
+                              values_to = "counts",
+                              cols = INPUT1A:M9S)
+
+#calculate number of above 0 values for all columns#
+above_zero <- barcodes_long %>%
+          group_by(samples) %>%
+          summarise(barcodes_used = sum(counts > 0))
+
+write.csv(above_zero, file = "Above_zero_barcode_counts.csv")
