@@ -1,0 +1,1604 @@
+#####FP for individual mice with other tissues as input#################
+#you will need to run this before all other TSFP and FFP scripts, as they use the datasets created here#
+#script for analysis of the 90% sequence read down-sampling datasets#
+
+#set working directory#
+setwd("") #add working directory details here#
+
+#create subdirectories#
+dir.create("FP_by_tissue_90_percent_1")
+dir.create("FP_by_tissue_90_percent_1/FP_data")
+dir.create("FP_by_tissue_90_percent_1/FP_heatmaps")
+dir.create("FP_by_tissue_90_percent_1/FP_networks")
+dir.create("FP_by_tissue_90_percent_1/FP_network_metrics")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+
+#founder pop function#
+founder_pop <- function(output_count, input_count){
+  output_count = as.vector(output_count)
+  input_count = as.vector(input_count)
+  output_freq = output_count/sum(output_count)
+  input_freq = input_count/sum(input_count)
+  diffsq = sum(((output_freq - input_freq)^2)/(input_freq*(1-input_freq)))
+  fhat = (1/(length(input_count)))*diffsq
+  input_seq_total = sum(input_count)
+  output_seq_total = sum(output_count)
+  founderpop = 1/(fhat - (1/input_seq_total) - (1/output_seq_total))
+  founderpop
+}
+
+
+#load dataset#
+
+barcode_counts <- read.csv("Data/Subsampling_analysis/barseq_90_1-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+
+all_FP_data <- data.frame()
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  list_DFs_per_mouse[[mouse]] <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+                                             id_cols = c("X"),
+                                             names_from = Tissue, 
+                                             values_from = barcode_count)
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+  for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+    })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+  }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  write.csv(FP_df2, paste0(file = "FP_by_tissue_90_percent_1/FP_data/FP_by_tissue_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  #plot#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #0 as lower limit removes all negligible or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(0, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_1/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_1/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".pdf"), height = 10, width=10)
+  
+  #plot again#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #3 as lower limit removes all below threshold 20 values or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(3, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_1/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_1/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.pdf"), height = 10, width=10)
+  
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  colnames(FP_df_final) <- sub("OUTPUT_SS", 'OUTPUT_SPLEEN', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_SS", 'INPUT_SPLEEN', rownames(FP_df_resid))
+  colnames(FP_df_final) <- sub("OUTPUT_", '', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_", '', rownames(FP_df_resid))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  
+  #next we build the network using our adjacency matrix#
+  #similar to previous networks but we have some vertices with only one connection#
+  #the first graph is using weight to be the edge connection strength, so high = very connected#
+  
+  g <- graph_from_adjacency_matrix(
+    as.matrix(FP_df_final),
+    mode = c("directed"),
+    weighted = TRUE,
+    diag = FALSE,
+    add.colnames = NULL,
+    add.rownames = NA
+  )
+  #Remove any vertices remaining that have no edges#
+  g <- delete_vertices(g, igraph::degree(g)==0)
+  
+  g <- delete_edges(g, E(g)[which(E(g)$weight<20)]) #threshold value set
+  #assign names to vertices#
+  #V(g)$name <- colnames(FP_df_final)
+  #we could apply a scale here based on FP from input?#
+  #but for now, just set as a shape#
+  V(g)$shape <- "sphere"
+  #weights for mst are 1/FP between vertices#
+  edgeweights <- (1/E(g)$weight)
+  #Convert the graph adjacency object into a minimum spanning tree based on Prim's algorithm#
+  mst <- mst(g, algorithm="prim", weights = edgeweights)
+  edgeweights2 <- (1/E(mst)$weight)
+  
+  ggraph(g, layout = "circle") +
+    geom_edge_fan( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                   arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                   show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "Full directed network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_1/FP_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_1/FP_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  #actual graph plots#
+  ggraph(mst, layout = "dh") +
+    geom_edge_link( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                    arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                    show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "MST network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_1/FP_networks/MST_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_1/FP_networks/MST_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  
+}
+
+
+#save data for all mice#
+
+write.csv(all_FP_data, "FP_by_tissue_90_percent_1/FP_data_90_percent_1.csv")
+
+
+###################################################################################
+dir.create("FP_by_tissue_90_percent_2")
+dir.create("FP_by_tissue_90_percent_2/FP_data")
+dir.create("FP_by_tissue_90_percent_2/FP_heatmaps")
+dir.create("FP_by_tissue_90_percent_2/FP_networks")
+dir.create("FP_by_tissue_90_percent_2/FP_network_metrics")
+
+#load dataset#
+
+
+barcode_counts <- read.csv("Data/Subsampling_analysis/barseq_90_2-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+
+all_FP_data <- data.frame()
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  list_DFs_per_mouse[[mouse]] <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+                                             id_cols = c("X"),
+                                             names_from = Tissue, 
+                                             values_from = barcode_count)
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+  for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+    })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+  }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  write.csv(FP_df2, paste0(file = "FP_by_tissue_90_percent_2/FP_data/FP_by_tissue_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  #plot#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #0 as lower limit removes all negligible or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(0, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_2/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_2/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".pdf"), height = 10, width=10)
+  
+  #plot again#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #3 as lower limit removes all below threshold 20 values or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(3, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_2/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_2/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.pdf"), height = 10, width=10)
+  
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  colnames(FP_df_final) <- sub("OUTPUT_SS", 'OUTPUT_SPLEEN', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_SS", 'INPUT_SPLEEN', rownames(FP_df_resid))
+  colnames(FP_df_final) <- sub("OUTPUT_", '', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_", '', rownames(FP_df_resid))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  
+  #next we build the network using our adjacency matrix#
+  #similar to previous networks but we have some vertices with only one connection#
+  #the first graph is using weight to be the edge connection strength, so high = very connected#
+  
+  g <- graph_from_adjacency_matrix(
+    as.matrix(FP_df_final),
+    mode = c("directed"),
+    weighted = TRUE,
+    diag = FALSE,
+    add.colnames = NULL,
+    add.rownames = NA
+  )
+  #Remove any vertices remaining that have no edges#
+  g <- delete_vertices(g, igraph::degree(g)==0)
+  
+  g <- delete_edges(g, E(g)[which(E(g)$weight<20)]) #threshold value set
+  #assign names to vertices#
+  #V(g)$name <- colnames(FP_df_final)
+  #we could apply a scale here based on FP from input?#
+  #but for now, just set as a shape#
+  V(g)$shape <- "sphere"
+  #weights for mst are 1/FP between vertices#
+  edgeweights <- (1/E(g)$weight)
+  #Convert the graph adjacency object into a minimum spanning tree based on Prim's algorithm#
+  mst <- mst(g, algorithm="prim", weights = edgeweights)
+  edgeweights2 <- (1/E(mst)$weight)
+  
+  ggraph(g, layout = "circle") +
+    geom_edge_fan( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                   arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                   show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "Full directed network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_2/FP_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_2/FP_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  #actual graph plots#
+  ggraph(mst, layout = "dh") +
+    geom_edge_link( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                    arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                    show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "MST network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_2/FP_networks/MST_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_2/FP_networks/MST_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  
+}
+
+
+#save data for all mice#
+
+write.csv(all_FP_data, "FP_by_tissue_90_percent_2/FP_data_90_percent_2.csv")
+
+
+###################################################################################
+dir.create("FP_by_tissue_90_percent_3")
+dir.create("FP_by_tissue_90_percent_3/FP_data")
+dir.create("FP_by_tissue_90_percent_3/FP_heatmaps")
+dir.create("FP_by_tissue_90_percent_3/FP_networks")
+dir.create("FP_by_tissue_90_percent_3/FP_network_metrics")
+
+#load dataset#
+
+
+barcode_counts <- read.csv("Data/Subsampling_analysis/barseq_90_3-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+
+all_FP_data <- data.frame()
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  list_DFs_per_mouse[[mouse]] <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+                                             id_cols = c("X"),
+                                             names_from = Tissue, 
+                                             values_from = barcode_count)
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+  for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+    })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+  }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  write.csv(FP_df2, paste0(file = "FP_by_tissue_90_percent_3/FP_data/FP_by_tissue_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  #plot#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #0 as lower limit removes all negligible or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(0, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_3/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_3/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".pdf"), height = 10, width=10)
+  
+  #plot again#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #3 as lower limit removes all below threshold 20 values or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(3, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_3/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_3/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.pdf"), height = 10, width=10)
+  
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  colnames(FP_df_final) <- sub("OUTPUT_SS", 'OUTPUT_SPLEEN', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_SS", 'INPUT_SPLEEN', rownames(FP_df_resid))
+  colnames(FP_df_final) <- sub("OUTPUT_", '', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_", '', rownames(FP_df_resid))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  
+  #next we build the network using our adjacency matrix#
+  #similar to previous networks but we have some vertices with only one connection#
+  #the first graph is using weight to be the edge connection strength, so high = very connected#
+  
+  g <- graph_from_adjacency_matrix(
+    as.matrix(FP_df_final),
+    mode = c("directed"),
+    weighted = TRUE,
+    diag = FALSE,
+    add.colnames = NULL,
+    add.rownames = NA
+  )
+  #Remove any vertices remaining that have no edges#
+  g <- delete_vertices(g, igraph::degree(g)==0)
+  
+  g <- delete_edges(g, E(g)[which(E(g)$weight<20)]) #threshold value set
+  #assign names to vertices#
+  #V(g)$name <- colnames(FP_df_final)
+  #we could apply a scale here based on FP from input?#
+  #but for now, just set as a shape#
+  V(g)$shape <- "sphere"
+  #weights for mst are 1/FP between vertices#
+  edgeweights <- (1/E(g)$weight)
+  #Convert the graph adjacency object into a minimum spanning tree based on Prim's algorithm#
+  mst <- mst(g, algorithm="prim", weights = edgeweights)
+  edgeweights2 <- (1/E(mst)$weight)
+  
+  ggraph(g, layout = "circle") +
+    geom_edge_fan( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                   arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                   show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "Full directed network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_3/FP_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_3/FP_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  #actual graph plots#
+  ggraph(mst, layout = "dh") +
+    geom_edge_link( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                    arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                    show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "MST network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_3/FP_networks/MST_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_3/FP_networks/MST_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  
+}
+
+
+#save data for all mice#
+
+write.csv(all_FP_data, "FP_by_tissue_90_percent_3/FP_data_90_percent_3.csv")
+
+
+###################################################################################
+dir.create("FP_by_tissue_90_percent_4")
+dir.create("FP_by_tissue_90_percent_4/FP_data")
+dir.create("FP_by_tissue_90_percent_4/FP_heatmaps")
+dir.create("FP_by_tissue_90_percent_4/FP_networks")
+dir.create("FP_by_tissue_90_percent_4/FP_network_metrics")
+
+#load dataset#
+
+
+barcode_counts <- read.csv("Data/Subsampling_analysis/barseq_90_4-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+
+all_FP_data <- data.frame()
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  list_DFs_per_mouse[[mouse]] <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+                                             id_cols = c("X"),
+                                             names_from = Tissue, 
+                                             values_from = barcode_count)
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+  for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+    })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+  }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  write.csv(FP_df2, paste0(file = "FP_by_tissue_90_percent_4/FP_data/FP_by_tissue_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  #plot#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #0 as lower limit removes all negligible or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(0, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_4/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_4/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".pdf"), height = 10, width=10)
+  
+  #plot again#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #3 as lower limit removes all below threshold 20 values or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(3, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_4/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_4/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.pdf"), height = 10, width=10)
+  
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  colnames(FP_df_final) <- sub("OUTPUT_SS", 'OUTPUT_SPLEEN', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_SS", 'INPUT_SPLEEN', rownames(FP_df_resid))
+  colnames(FP_df_final) <- sub("OUTPUT_", '', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_", '', rownames(FP_df_resid))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  
+  #next we build the network using our adjacency matrix#
+  #similar to previous networks but we have some vertices with only one connection#
+  #the first graph is using weight to be the edge connection strength, so high = very connected#
+  
+  g <- graph_from_adjacency_matrix(
+    as.matrix(FP_df_final),
+    mode = c("directed"),
+    weighted = TRUE,
+    diag = FALSE,
+    add.colnames = NULL,
+    add.rownames = NA
+  )
+  #Remove any vertices remaining that have no edges#
+  g <- delete_vertices(g, igraph::degree(g)==0)
+  
+  g <- delete_edges(g, E(g)[which(E(g)$weight<20)]) #threshold value set
+  #assign names to vertices#
+  #V(g)$name <- colnames(FP_df_final)
+  #we could apply a scale here based on FP from input?#
+  #but for now, just set as a shape#
+  V(g)$shape <- "sphere"
+  #weights for mst are 1/FP between vertices#
+  edgeweights <- (1/E(g)$weight)
+  #Convert the graph adjacency object into a minimum spanning tree based on Prim's algorithm#
+  mst <- mst(g, algorithm="prim", weights = edgeweights)
+  edgeweights2 <- (1/E(mst)$weight)
+  
+  ggraph(g, layout = "circle") +
+    geom_edge_fan( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                   arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                   show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "Full directed network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_4/FP_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_4/FP_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  #actual graph plots#
+  ggraph(mst, layout = "dh") +
+    geom_edge_link( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                    arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                    show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "MST network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_4/FP_networks/MST_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_4/FP_networks/MST_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  
+}
+
+
+#save data for all mice#
+
+write.csv(all_FP_data, "FP_by_tissue_90_percent_4/FP_data_90_percent_4.csv")
+
+
+###################################################################################
+dir.create("FP_by_tissue_90_percent_5")
+dir.create("FP_by_tissue_90_percent_5/FP_data")
+dir.create("FP_by_tissue_90_percent_5/FP_heatmaps")
+dir.create("FP_by_tissue_90_percent_5/FP_networks")
+dir.create("FP_by_tissue_90_percent_5/FP_network_metrics")
+
+#load dataset#
+
+
+barcode_counts <- read.csv("Data/Subsampling_analysis/barseq_90_5-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+
+all_FP_data <- data.frame()
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  list_DFs_per_mouse[[mouse]] <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+                                             id_cols = c("X"),
+                                             names_from = Tissue, 
+                                             values_from = barcode_count)
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+  for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+    })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+  }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  write.csv(FP_df2, paste0(file = "FP_by_tissue_90_percent_5/FP_data/FP_by_tissue_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  #plot#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #0 as lower limit removes all negligible or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(0, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_5/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_5/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),".pdf"), height = 10, width=10)
+  
+  #plot again#
+  #have checked that 8 is higher than any upper values within the dataset#
+  #3 as lower limit removes all below threshold 20 values or same tissue compared to itself comparisons from plot#
+  ggplot(subset(df_long), aes(y = INPUT2, x= OUTPUT2, fill = log(FP))) + geom_tile() +
+    labs(fill = "log(Tissue-sourced FP):\n", y= "Source tissue\n", x = "\nRecipient tissue") +
+    scale_fill_viridis_c(option = "G", limits = c(3, 8), na.value = "white") +
+    #scale_x_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    #scale_y_discrete(labeller = as_labeller(c("S" = "SPLEEN"))) +
+    scale_x_discrete(labels = c(S = "SPLEEN")) +
+    scale_y_discrete(labels = c(S = "SPLEEN")) +
+    theme_bw() + theme(legend.title = element_text(size = 20),
+                       legend.position = "bottom",
+                       plot.title = element_text(hjust = 0.5, size = 28),
+                       panel.border = element_blank(), 
+                       panel.grid.major = element_blank(),
+                       panel.grid.minor = element_blank(),
+                       axis.title = element_text(size=24), 
+                       axis.line = 
+                         element_line(colour = "black"), 
+                       axis.text.x = element_text(size = 16, colour = "black", vjust = 0.5, angle = 90),
+                       axis.text.y = element_text(size = 16, colour = "black"),
+                       legend.text = element_text(size = 16, colour = "black"))
+  ggsave(paste0(file = "FP_by_tissue_90_percent_5/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.png"), height = 10, width=10)
+  ggsave(paste0(file = "FP_by_tissue_90_percent_5/FP_heatmaps/FP_by_tissue_",paste0("mouse",mouse),"_2.pdf"), height = 10, width=10)
+  
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  colnames(FP_df_final) <- sub("OUTPUT_SS", 'OUTPUT_SPLEEN', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_SS", 'INPUT_SPLEEN', rownames(FP_df_resid))
+  colnames(FP_df_final) <- sub("OUTPUT_", '', colnames(FP_df_final))
+  rownames(FP_df_final) <- sub("INPUT_", '', rownames(FP_df_resid))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  
+  #next we build the network using our adjacency matrix#
+  #similar to previous networks but we have some vertices with only one connection#
+  #the first graph is using weight to be the edge connection strength, so high = very connected#
+  
+  g <- graph_from_adjacency_matrix(
+    as.matrix(FP_df_final),
+    mode = c("directed"),
+    weighted = TRUE,
+    diag = FALSE,
+    add.colnames = NULL,
+    add.rownames = NA
+  )
+  #Remove any vertices remaining that have no edges#
+  g <- delete_vertices(g, igraph::degree(g)==0)
+  
+  g <- delete_edges(g, E(g)[which(E(g)$weight<20)]) #threshold value set
+  #assign names to vertices#
+  #V(g)$name <- colnames(FP_df_final)
+  #we could apply a scale here based on FP from input?#
+  #but for now, just set as a shape#
+  V(g)$shape <- "sphere"
+  #weights for mst are 1/FP between vertices#
+  edgeweights <- (1/E(g)$weight)
+  #Convert the graph adjacency object into a minimum spanning tree based on Prim's algorithm#
+  mst <- mst(g, algorithm="prim", weights = edgeweights)
+  edgeweights2 <- (1/E(mst)$weight)
+  
+  ggraph(g, layout = "circle") +
+    geom_edge_fan( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                   arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                   show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "Full directed network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_5/FP_networks/full_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_5/FP_networks/full_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  #actual graph plots#
+  ggraph(mst, layout = "dh") +
+    geom_edge_link( aes(edge_colour = weight, width  = weight, alpha = weight), 
+                    arrow = arrow(length = unit(7, 'mm'), type = "closed"),
+                    show.legend = TRUE) +
+    geom_node_point(colour = "grey", size = 3) +
+    geom_node_text(aes(label = name),  colour = 'black', size=8,
+                   show.legend = FALSE) +
+    scale_edge_color_continuous(
+      high = "#0d0887",
+      low = "#f0f921",
+      space = "Lab",
+      guide = "edge_colourbar",
+      aesthetics = "edge_colour",
+      limits = c(0, NA)
+    ) +
+    theme_bw() +
+    labs(title = "MST network\n", edge_colour = "FFP:") +
+    theme(legend.title = element_text(size = 20),
+          legend.position = "bottom",
+          legend.key.size = unit(10, "mm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+          panel.border = element_blank(),
+          plot.caption = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 18, hjust = 1, angle = 45),
+          axis.text.x=element_blank(), 
+          axis.ticks.x=element_blank(), 
+          axis.text.y=element_blank(),  
+          axis.ticks.y=element_blank(),
+          axis.title = element_blank()) +
+    guides (edge_width = "none", edge_alpha = "none")
+  ggsave(paste0("FP_by_tissue_90_percent_5/FP_networks/MST_network",paste0("mouse",mouse),".png"), width = 12, height = 10)
+  ggsave(paste0("FP_by_tissue_90_percent_5/FP_networks/MST_network",paste0("mouse",mouse),".pdf"), width = 12, height = 10)
+  
+  
+}
+
+
+#save data for all mice#
+
+write.csv(all_FP_data, "Updated_results_review_comments/FP_by_tissue_90_percent_5/FP_data_90_percent_5.csv")
