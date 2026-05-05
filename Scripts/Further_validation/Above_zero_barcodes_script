@@ -1,5 +1,8 @@
+#a script to count the number of non-zero barcodes contributing to TSFP calculations for each sample as input#
+
+
 #set working directory#
-setwd("")
+setwd("") #add working directory details here#
 
 
 #package loading#
