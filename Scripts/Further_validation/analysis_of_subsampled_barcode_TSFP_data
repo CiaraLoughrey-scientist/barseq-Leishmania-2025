@@ -1,0 +1,515 @@
+#####FP for individual mice with other tissues as input#################
+#you will need to run this before all other TSFP and FFP scripts, as they use the datasets created here#
+#analysis of the output of the subsampling and jack-knifing TSFP calculations in which barcodes are removed prior to calculations#
+
+#set working directory#
+setwd("") #add working directory details here#
+
+#create subdirectories#
+
+dir.create("Figures")
+
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+
+
+#load data#
+
+new_FP_50_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_50_percent_barcodes.csv")
+new_FP_75_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_75_percent_barcodes.csv")
+new_FP_90_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_90_percent_barcodes.csv")
+new_FP_95_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_95_percent_barcodes.csv")
+new_FP_100_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_100_percent_barcodes.csv")
+
+new_FFP_50_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_50_percent_barcodes2.csv")
+new_FFP_75_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_75_percent_barcodes2.csv")
+new_FFP_90_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_90_percent_barcodes2.csv")
+new_FFP_95_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_95_percent_barcodes2.csv")
+new_FFP_100_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_100_percent_barcodes2.csv")
+
+
+#add column for percent to each dataset#
+new_FP_50_percent$barcode_percentage <- "50"
+new_FP_75_percent$barcode_percentage <- "75"
+new_FP_90_percent$barcode_percentage <- "90"
+new_FP_95_percent$barcode_percentage <- "95"
+new_FP_100_percent$barcode_percentage <- "100"
+names(new_FP_100_percent)[names(new_FP_100_percent) == "FP"] <- "FP_100"
+
+new_FP_50_percent$samples_compared <- str_c("M", new_FP_50_percent$mouse_ID, ":", new_FP_50_percent$INPUT_POOL, ":", new_FP_50_percent$OUTPUT_POOL)
+new_FP_75_percent$samples_compared <- str_c("M", new_FP_75_percent$mouse_ID, ":",new_FP_75_percent$INPUT_POOL, ":", new_FP_75_percent$OUTPUT_POOL)
+new_FP_90_percent$samples_compared <- str_c("M", new_FP_90_percent$mouse_ID, ":",new_FP_90_percent$INPUT_POOL, ":", new_FP_90_percent$OUTPUT_POOL)
+new_FP_95_percent$samples_compared <- str_c("M", new_FP_95_percent$mouse_ID, ":",new_FP_95_percent$INPUT_POOL, ":", new_FP_95_percent$OUTPUT_POOL)
+new_FP_100_percent$samples_compared <- str_c("M", new_FP_100_percent$mouse_ID, ":",new_FP_100_percent$INPUT_POOL, ":", new_FP_100_percent$OUTPUT_POOL)
+
+
+FP_all <- new_FP_100_percent$FP_100
+
+#merge datasets#
+FP_df <- mutate(new_FP_95_percent, 
+                FP_all = FP_all)
+  #bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df <- subset(FP_df, FP > 0)
+
+
+#plot 95% correlation#
+ggplot(FP_df, aes(y = FP, x= FP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 95% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 95% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+  #guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FP_all_vs_FP_95_plot.png", width = 8, height = 6)
+ggsave("Figures/FP_all_vs_FP_95_plot.pdf", width = 8, height = 6)
+
+#test 95% correlation#
+cor_test_95_percent <- cor.test(FP_df$FP, FP_df$FP_all, alternative = "two.sided", method = "kendall")
+cor_test_95_percent
+
+#merge datasets#
+FP_df2 <- mutate(new_FP_90_percent, 
+                FP_all = FP_all)
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df2 <- subset(FP_df2, FP > 0)
+
+
+#plot 95% correlation#
+ggplot(FP_df2, aes(y = FP, x= FP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 90% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 90% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FP_all_vs_FP_90_plot.png", width = 8, height = 6)
+ggsave("Figures/FP_all_vs_FP_90_plot.pdf", width = 8, height = 6)
+
+#test 90% correlation#
+cor_test_90_percent <- cor.test(FP_df2$FP, FP_df2$FP_all, alternative = "two.sided", method = "kendall")
+cor_test_90_percent
+
+
+#merge datasets#
+FP_df2 <- mutate(new_FP_90_percent, 
+                 FP_all = FP_all)
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df2 <- subset(FP_df2, FP > 0)
+
+
+#plot 95% correlation#
+ggplot(FP_df2, aes(y = FP, x= FP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 90% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 90% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FP_all_vs_FP_90_plot.png", width = 8, height = 6)
+ggsave("Figures/FP_all_vs_FP_90_plot.pdf", width = 8, height = 6)
+
+#test 90% correlation#
+cor_test_90_percent <- cor.test(FP_df2$FP, FP_df2$FP_all, alternative = "two.sided", method = "kendall")
+cor_test_90_percent
+
+
+#merge datasets#
+FP_df3 <- mutate(new_FP_75_percent, 
+                 FP_all = FP_all)
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df3 <- subset(FP_df3, FP > 0)
+
+
+#plot 75% correlation#
+ggplot(FP_df3, aes(y = FP, x= FP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 75% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 75% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FP_all_vs_FP_75_plot.png", width = 8, height = 6)
+ggsave("Figures/FP_all_vs_FP_75_plot.pdf", width = 8, height = 6)
+
+#test 75% correlation#
+cor_test_75_percent <- cor.test(FP_df3$FP, FP_df3$FP_all, alternative = "two.sided", method = "kendall")
+cor_test_75_percent
+
+
+#merge datasets#
+FP_df4 <- mutate(new_FP_50_percent, 
+                 FP_all = FP_all)
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df4 <- subset(FP_df4, FP > 0)
+
+
+#plot 75% correlation#
+ggplot(FP_df4, aes(y = FP, x= FP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 50% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 50% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FP_all_vs_FP_50_plot.png", width = 8, height = 6)
+ggsave("Figures/FP_all_vs_FP_50_plot.pdf", width = 8, height = 6)
+
+#test 75% correlation#
+cor_test_50_percent <- cor.test(FP_df4$FP, FP_df4$FP_all, alternative = "two.sided", method = "kendall")
+cor_test_50_percent
+
+
+
+
+
+##########################
+#FFP#
+#add column for percent to each dataset#
+new_FFP_50_percent$barcode_percentage <- "50"
+new_FFP_75_percent$barcode_percentage <- "75"
+new_FFP_90_percent$barcode_percentage <- "90"
+new_FFP_95_percent$barcode_percentage <- "95"
+new_FFP_100_percent$barcode_percentage <- "100"
+names(new_FFP_100_percent)[names(new_FFP_100_percent) == "FFP"] <- "FFP_100"
+
+new_FFP_50_percent$samples_compared <- str_c("M", new_FFP_50_percent$mouse_ID, ":", new_FFP_50_percent$INPUT_POOL, ":", new_FFP_50_percent$OUTPUT_POOL)
+new_FFP_75_percent$samples_compared <- str_c("M", new_FFP_75_percent$mouse_ID, ":",new_FFP_75_percent$INPUT_POOL, ":", new_FFP_75_percent$OUTPUT_POOL)
+new_FFP_90_percent$samples_compared <- str_c("M", new_FFP_90_percent$mouse_ID, ":",new_FFP_90_percent$INPUT_POOL, ":", new_FFP_90_percent$OUTPUT_POOL)
+new_FFP_95_percent$samples_compared <- str_c("M", new_FFP_95_percent$mouse_ID, ":",new_FFP_95_percent$INPUT_POOL, ":", new_FFP_95_percent$OUTPUT_POOL)
+new_FFP_100_percent$samples_compared <- str_c("M", new_FFP_100_percent$mouse_ID, ":",new_FFP_100_percent$INPUT_POOL, ":", new_FFP_100_percent$OUTPUT_POOL)
+
+
+FFP_all <- new_FFP_100_percent$FFP_100
+
+summary_100_percent <- new_FFP_100_percent %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_100 = sum(FFP_100 > 0))
+
+
+#merge datasets#
+FP_df <- mutate(new_FFP_95_percent, 
+                FFP_all = FFP_all)
+
+summary_95_percent <- FP_df %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_95 = sum(FFP > 0 & FFP_all > 0))
+
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df <- subset(FP_df, FFP > 0)
+
+
+#plot 95% correlation#
+ggplot(FP_df, aes(y = FFP, x= FFP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 95% of barcodes", x= "\nFFP with 100% of barcodes", y = "FFP with 95% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FFP_all_vs_FFP_95_plot.png", width = 8, height = 6)
+ggsave("Figures/FFP_all_vs_FFP_95_plot.pdf", width = 8, height = 6)
+
+#test 95% correlation#
+cor_test_95_percent <- cor.test(FP_df$FFP, FP_df$FFP_all, alternative = "two.sided", method = "kendall")
+cor_test_95_percent
+
+#merge datasets#
+FP_df2 <- mutate(new_FFP_90_percent, 
+                 FFP_all = FFP_all)
+
+summary_90_percent <- FP_df2 %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_90 = sum(FFP > 0 & FFP_all > 0))
+
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df <- subset(FP_df, FFP > 0)
+
+
+#plot 90% correlation#
+ggplot(FP_df2, aes(y = FFP, x= FFP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 90% of barcodes", x= "\nFP with 100% of barcodes", y = "FP with 90% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FFP_all_vs_FFP_90_plot.png", width = 8, height = 6)
+ggsave("Figures/FFP_all_vs_FFP_90_plot.pdf", width = 8, height = 6)
+
+#test 90% correlation#
+cor_test_90_percent <- cor.test(FP_df2$FFP, FP_df2$FFP_all, alternative = "two.sided", method = "kendall")
+cor_test_90_percent
+
+
+
+
+#merge datasets#
+FP_df3 <- mutate(new_FFP_75_percent, 
+                 FFP_all = FFP_all)
+
+summary_75_percent <- FP_df3 %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_75 = sum(FFP > 0 & FFP_all > 0))
+
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df3 <- subset(FP_df3, FFP > 0)
+
+
+#plot 75% correlation#
+ggplot(FP_df3, aes(y = FFP, x= FFP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 75% of barcodes", x= "\nFFP with 100% of barcodes", y = "FFP with 75% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FFP_all_vs_FFP_75_plot.png", width = 8, height = 6)
+ggsave("Figures/FFP_all_vs_FFP_75_plot.pdf", width = 8, height = 6)
+
+#test 75% correlation#
+cor_test_75_percent <- cor.test(FP_df3$FFP, FP_df3$FFP_all, alternative = "two.sided", method = "kendall")
+cor_test_75_percent
+
+
+#merge datasets#
+FP_df4 <- mutate(new_FFP_50_percent, 
+                 FFP_all = FFP_all)
+
+summary_50_percent <- FP_df4 %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_50 = sum(FFP > 0 & FFP_all > 0))
+
+#bind_rows(new_FP_50_percent,new_FP_75_percent, new_FP_90_percent, new_FP_95_percent, new_FP_100_percent)
+FP_df4 <- subset(FP_df4, FFP > 0)
+
+
+#plot 75% correlation#
+ggplot(FP_df4, aes(y = FFP, x= FFP_all)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation with 50% of barcodes", x= "\nFFP with 100% of barcodes", y = "FFP with 50% of barcodes\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FFP_all_vs_FFP_50_plot.png", width = 8, height = 6)
+ggsave("Figures/FFP_all_vs_FFP_50_plot.pdf", width = 8, height = 6)
+
+#test 75% correlation#
+cor_test_50_percent <- cor.test(FP_df4$FFP, FP_df4$FFP_all, alternative = "two.sided", method = "kendall")
+cor_test_50_percent
+
+
+
+#join data and save#
+merge_df <- data.frame(summary_100_percent, summary_95_percent, summary_90_percent, summary_75_percent, summary_50_percent)
+merge_df <- merge_df[-c(3, 5, 7, 9)]
+write.csv(merge_df, file = "Updated_results_review_comments/FP_by_tissue_subsampling/matched_magnitude_subsampling.csv")
+
+#jacknife data#
+
+new_FP <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_jacknife_barcodes.csv")
+new_FFP <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_jacknife_barcodes2.csv")
+
+new_FP_100_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_100_percent_barcodes.csv")
+new_FFP_100_percent <- read.csv("FP_by_tissue_subsampling/Reinf3_all_new_FP_data_100_percent_barcodes2.csv")
+
+
+new_FFP_100_percent <- subset(new_FFP_100_percent, sim_ID == 1)
+all_FFP <- rep(new_FFP_100_percent$FFP, 105)
+
+new_FFP_full <- mutate(new_FFP, 
+                       all_FFP = all_FFP)
+
+summary_jacknife <- new_FFP_full %>% 
+  group_by(sim_ID) %>%
+  summarise(mag_match_jacknife = sum(FFP > 0 & all_FFP > 0),
+            total_baseline = sum(all_FFP > 0))
+
+summary_jacknife <- mutate(summary_jacknife,
+                           percentage_same = mag_match_jacknife/total_baseline*100)
+
+write.csv(summary_jacknife, file = "FP_by_tissue_subsampling/jacknife_directionality_match.csv")
+write.csv(new_FFP_full, file = "FP_by_tissue_subsampling/jacknife_data_with_baseline.csv")
+
+#plot correlation#
+ggplot(new_FFP_full, aes(y = FFP, x= all_FFP)) + 
+  geom_point(size = 1.5, alpha = 0.1) +
+  labs(title = "Correlation to jacknifed data", x= "\nFFP with 100% of barcodes", y = "FFP with 1 barcode removed\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("Figures/FFP_all_vs_FFP_jacknife_plot.png", width = 8, height = 6)
+ggsave("Figures/FFP_all_vs_FFP_jacknife_plot.pdf", width = 8, height = 6)
+
+#test 75% correlation#
+cor_test_jacknife <- cor.test(new_FFP_full$FFP, new_FFP_full$all_FFP, alternative = "two.sided", method = "kendall")
+cor_test_jacknife
