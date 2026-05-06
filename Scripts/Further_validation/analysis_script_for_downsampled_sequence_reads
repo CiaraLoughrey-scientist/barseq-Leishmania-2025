@@ -1,0 +1,160 @@
+#analysis of reduced reads datasets#
+
+
+#set working directory#
+setwd("") #add working directory details here#
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+
+
+all_data_50 <- read.csv("Data/Subsampling_analysis/all_data_50_percent_FP.csv")
+
+
+long_df <- pivot_longer(
+  all_data_50,
+  cols = c("FP_1", "FP_2", "FP_3", "FP_4", "FP_5"),
+  names_to = "run",
+  values_to = "FP_est"
+)
+
+long_df <- subset(long_df, FP_100_percent > 0)
+
+#calculate number of NA for all runs#
+NA_values <- long_df %>%
+  group_by(run) %>%
+  summarise(NA_total = sum(is.na(FP_est)))
+#48 NAs created#
+
+#plot 90% correlation#
+ggplot(long_df, aes(y = FP_est, x= FP_100_percent)) + 
+  geom_point(size = 2, alpha = 0.4) +
+  labs(title = "50% read depth", x= "\nTSFP with 100% reads", y = "TSFP with 50% reads\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("FP_all_vs_FP_50_percent_reads_plot.png", width = 8, height = 6)
+ggsave("FP_all_vs_FP_50_percent_reads_plot.pdf", width = 8, height = 6)
+
+#test 95% correlation#
+cor_test_50_percent <- cor.test(long_df$FP_100_percent, long_df$FP_est, alternative = "two.sided", method = "kendall")
+cor_test_50_percent
+
+
+
+
+all_data_75 <- read.csv("Data/Subsampling_analysis/all_data_75_percent_FP.csv")
+
+
+long_df <- pivot_longer(
+  all_data_75,
+  cols = c("FP_1", "FP_2", "FP_3", "FP_4", "FP_5"),
+  names_to = "run",
+  values_to = "FP_est"
+)
+
+long_df <- subset(long_df, FP_100_percent > 0)
+
+#calculate number of NA for all runs#
+NA_values <- long_df %>%
+  group_by(run) %>%
+  summarise(NA_total = sum(is.na(FP_est)))
+
+
+#plot 90% correlation#
+ggplot(long_df, aes(y = FP_est, x= FP_100_percent)) + 
+  geom_point(size = 2, alpha = 0.4) +
+  labs(title = "75% read depth", x= "\nTSFP with 100% reads", y = "TSFP with 75% reads\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("FP_all_vs_FP_75_percent_reads_plot.png", width = 8, height = 6)
+ggsave("FP_all_vs_FP_75_percent_reads_plot.pdf", width = 8, height = 6)
+
+#test 95% correlation#
+cor_test_75_percent <- cor.test(long_df$FP_100_percent, long_df$FP_est, alternative = "two.sided", method = "kendall")
+cor_test_75_percent
+
+all_data_90 <- read.csv("Data/Subsampling_analysis/all_data_90_percent_FP.csv")
+
+
+long_df <- pivot_longer(
+  all_data_90,
+  cols = c("FP_1", "FP_2", "FP_3", "FP_4", "FP_5"),
+  names_to = "run",
+  values_to = "FP_est"
+)
+
+long_df <- subset(long_df, FP > 0)
+
+#plot 90% correlation#
+ggplot(long_df, aes(y = FP_est, x= FP)) + 
+  geom_point(size = 2, alpha = 0.4) +
+  labs(title = "90% read depth", x= "\nTSFP with 100% reads", y = "TSFP with 90% reads\n") +
+  #scale_colour_manual(values = c("#0d0887", "#febd2a", "#8b0aa5", "#f48849", "#b83289")) +
+  #scale_y_continuous(expand = c(0,0)) +
+  #scale_x_continuous(expand = c(0,0)) +
+  theme_bw() + theme(legend.title = element_text(size = 24),
+                     legend.position = "bottom",
+                     plot.title = element_text(hjust = 0.5, size = 24),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.title = element_text(size=24), 
+                     axis.line = 
+                       element_line(colour = "black"),
+                     axis.text.x = element_text(size = 20, colour = "black"),
+                     axis.text.y = element_text(size = 20, colour = "black"),
+                     legend.text = element_text(size = 20, colour = "black"),
+                     strip.text.x = element_text(size = 24))
+#guides(colour = guide_legend(nrow=1))
+#,  nrow = 1, labeller = as_labeller(
+# c(basic_sim = "Basic", clonal_c_common_sim = "Clonal Expansion\n1 in 100", clonal_a_rare_sim = "Clonal Expansion\n1 in 1000000", 
+# clonal_b_medium_sim = "Clonal Expansion\n1 in 10000", bb_variance_sim = "Growth rate\nvariance")))
+ggsave("FP_all_vs_FP_90_percent_reads_plot.png", width = 8, height = 6)
+ggsave("FP_all_vs_FP_90_percent_reads_plot.pdf", width = 8, height = 6)
+
+#test 95% correlation#
+cor_test_90_percent <- cor.test(long_df$FP, long_df$FP_est, alternative = "two.sided", method = "kendall")
+cor_test_90_percent
