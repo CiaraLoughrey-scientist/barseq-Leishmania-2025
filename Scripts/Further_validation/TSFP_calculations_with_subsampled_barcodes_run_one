@@ -1,0 +1,305 @@
+#####FP for individual mice with other tissues as input#################
+#you will need to run this before all other TSFP and FFP scripts, as they use the datasets created here#
+#subsampling the barcodes TSFP calculations first run#
+
+#set working directory#
+setwd("") #add working directory details here#
+
+#create subdirectories#
+
+dir.create("FP_by_tissue_subsampling")
+dir.create("FP_by_tissue_subsampling/FP_data")
+dir.create("FP_by_tissue_subsampling/FP_heatmaps")
+dir.create("FP_by_tissue_subsampling/FP_networks")
+dir.create("FP_by_tissue_subsampling/FP_network_metrics")
+
+
+#package loading#
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(vegan)
+library(ggraph)
+library(igraph)
+library(naniar)
+
+#founder pop function#
+founder_pop <- function(output_count, input_count){
+  output_count = as.vector(output_count)
+  input_count = as.vector(input_count)
+  output_freq = output_count/sum(output_count)
+  input_freq = input_count/sum(input_count)
+  diffsq = sum(((output_freq - input_freq)^2)/(input_freq*(1-input_freq)))
+  fhat = (1/(length(input_count)))*diffsq
+  input_seq_total = sum(input_count)
+  output_seq_total = sum(output_count)
+  founderpop = 1/(fhat - (1/input_seq_total) - (1/output_seq_total))
+  founderpop
+}
+
+
+#load dataset#
+
+barcode_counts <- read.csv("Data/2025-JCM-002-barcodes.csv") #save dataset into Data folder#
+
+
+#subset for mice only and label the mouse ID#
+barcode_counts <- barcode_counts[-c(2:7)]
+#remove low read samples before starting analysis#
+#any below 50000 reads in total take out as they skew the FP calculation and is harder to remove in the loop itself#
+######################################################################################################################
+
+remove_columns <- sapply(subset(barcode_counts, select = -c(X)), sum)
+remove_columns <- names(remove_columns[remove_columns < 50000])
+barcode_counts[colnames(barcode_counts) %in% remove_columns] <- NA #changes low barcode read samples to NA instead of removing completely#
+#barcode_counts <- barcode_counts[,setdiff(names(barcode_counts), remove_columns)] #this removes the columns completely but this might cause issues with the looped code later on#
+
+#remove B59#
+barcode_counts <- subset(barcode_counts, X != c("TGGATCTTAGGACGCAACAT"))
+length <- as.numeric(nrow(barcode_counts))
+
+#data formatting to include mouse/tissue attributes#
+#long_mice <- pivot_longer(barcode_counts,
+#     names_to = "Samples",
+#     values_to = "barcode_count",
+#     cols = M10BM1:M9S)
+long_mice <- pivot_longer(barcode_counts,
+                          names_to = "Samples",
+                          values_to = "barcode_count",
+                          cols = colnames(barcode_counts[-c(1,1)])) #general rule will work for all dataframes created using our code for amalgamating barcodes#
+
+samples = long_mice$Samples
+long_mice$mouse_ID <- NULL
+long_mice$mouse_ID <- parse_number(samples)
+
+#name tissues#
+Tissue <- sub('^M[0-9]+', '', samples)
+long_mice <- mutate(long_mice, "Tissue" = Tissue)
+
+long_mice$Tissue2 <- long_mice$Tissue
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue[long_mice$Tissue %in% c("LL", "LM", "LS", "L")] <- "LIVER" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("LN1", "LN2")] <- "LN" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("BM1", "BM2")] <- "BM" 
+long_mice$Tissue2[long_mice$Tissue2 %in% c("SKIN1", "SKIN2", "SKIN3", "SKIN4", "SKIN5", "SKIN6", "SKIN7",
+                                           "SKIN8", "SKIN9", "SKIN10", "SKIN11", "SKIN12")] <- "SKIN" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN1")] <- "SKIN01" 
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN2")] <- "SKIN02"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN3")] <- "SKIN03"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN4")] <- "SKIN04"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN5")] <- "SKIN05"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN6")] <- "SKIN06"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN7")] <- "SKIN07"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN8")] <- "SKIN08"
+long_mice$Tissue[long_mice$Tissue %in% c("SKIN9")] <- "SKIN09"
+#long_mice$Tissue2[long_mice$Tissue2 %in% c("S")] <- "SPLEEN" 
+#long_mice$Tissue[long_mice$Tissue %in% c("S")] <- "SPLEEN" #this causes spleen to separate from other tissues in heatmaps, we will rename in the heatmap instead to avoid this#
+
+#we will run this code with 95%, 90%, 75% and 50% of barcodes included#
+#10 repeats per percentage, with random selection of the removed barcodes for each run#
+
+
+#############################################################
+#remove 5% of barcodes#
+#############################################################
+
+#generate 10x random number lists from 1 to length of dataframe, accounting for 5% of total barcodes#
+set.seed(1)
+random_5_percent_1 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(2)
+random_5_percent_2 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(3)
+random_5_percent_3 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(4)
+random_5_percent_4 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(5)
+random_5_percent_5 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(6)
+random_5_percent_6 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(7)
+random_5_percent_7 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(8)
+random_5_percent_8 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(9)
+random_5_percent_9 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(10)
+random_5_percent_10 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(11)
+random_5_percent_11 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(12)
+random_5_percent_12 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(13)
+random_5_percent_13 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(14)
+random_5_percent_14 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(15)
+random_5_percent_15 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(16)
+random_5_percent_16 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(17)
+random_5_percent_17 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(18)
+random_5_percent_18 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(19)
+random_5_percent_19 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+set.seed(20)
+random_5_percent_20 <- sample(x = c(1:length), size = as.integer(0.05*length), replace = FALSE)
+
+
+random_5_percent <- c(list(random_5_percent_1), list(random_5_percent_2), list(random_5_percent_3), list(random_5_percent_4), 
+                      list(random_5_percent_5), list(random_5_percent_6), list(random_5_percent_7), list(random_5_percent_8), 
+                      list(random_5_percent_9), list(random_5_percent_10), list(random_5_percent_11), list(random_5_percent_12), 
+                      list(random_5_percent_13), list(random_5_percent_14), 
+                      list(random_5_percent_15), list(random_5_percent_16), list(random_5_percent_17), list(random_5_percent_18), 
+                      list(random_5_percent_19), list(random_5_percent_20))
+
+all_FP_data3 <- data.frame()
+all_FP_data4 <- data.frame()
+
+counter <- 1
+values <- c(1)
+sim_list <- paste("random_5_percent_", values, sep = "")
+for (sim_run in values){
+ for (x in random_5_percent){
+#reinfection 3 dataset#######################################
+
+#create dataframes for the metrics to be stored in#
+
+#create dataframe#
+all_FP_data <- data.frame()
+all_FP_data2 <- data.frame()
+
+
+#loop FP by tissue as input across all mice in dataset#
+#find the mice in current study
+mice_in_study <- unique(((long_mice$mouse_ID)))
+#remove all nas
+mice_in_study <- sort(mice_in_study[!is.na(mice_in_study)])
+#create wide format for each mouse here
+#create list that will store all dfs
+list_DFs_per_mouse <- list()
+#run loop for all mice
+  for (mouse in mice_in_study){
+  #back to wide format for each mouse#
+  wider_df <- pivot_wider(subset(long_mice, mouse_ID == mouse),
+              id_cols = c("X"),
+              names_from = Tissue, 
+              values_from = barcode_count)
+  wider_df <- wider_df[-c(x),] #somehow loop this#
+  list_DFs_per_mouse[[mouse]] <- wider_df
+  print(paste0("For mouse: ", mouse))
+  print(head(list_DFs_per_mouse[[mouse]]))
+  
+  FP_df2 <- data.frame()
+  
+  
+  
+    for (tissue in list_DFs_per_mouse[[mouse]][-c(1)]){
+    
+    df <- list_DFs_per_mouse[[mouse]][-c(1)]
+    input_names <- colnames(df) #list of column names#
+    #subset dataframe so all columns contain only barcodes which are over 0 in the tissue used for input#
+    df <- subset(df, tissue > 0)
+    #new input tissue vector with 0 removed#
+    tissue2 <- tissue[tissue != 0]
+    #name input as tissue2 vector in the FP calculation#
+    FP_df <- apply(df, 2, function(col_in) {
+      return(founder_pop(col_in, tissue2))
+     })
+    FP_df2 <- rbind(FP_df2, FP_df)
+    
+    }
+  colnames(FP_df2) <- names(df)
+  colnames(FP_df2) <- paste("OUTPUT_", colnames(FP_df2), sep = "")
+  colnames(FP_df2) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df2))
+  rownames(FP_df2) <- names(df)
+  rownames(FP_df2) <- paste("INPUT_", rownames(FP_df2), sep = "")
+  rownames(FP_df2) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df2))
+  #write.csv(FP_df2, paste0(file = "FP_by_tissue_subsampling/FP_data/FP_by_tissue_95_percent_","mouse", mouse,".csv"))
+  
+  FP_df2 <- mutate(FP_df2, "INPUT_POOL" = rownames(FP_df2))
+  #pivot data longer#
+  df_long <- pivot_longer(
+    FP_df2,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FP"
+  )
+  
+  df_long$INPUT2 <- gsub("INPUT_", "", df_long$INPUT_POOL)
+  df_long$OUTPUT2 <- gsub("OUTPUT_", "", df_long$OUTPUT_POOL)#
+  
+  df_long <- mutate(df_long, 
+                    mouse_ID = mouse)
+  df_long$sim_ID <- counter
+  #add GD data to full dataframe#
+  all_FP_data <- bind_rows(all_FP_data, df_long)
+  
+  
+  ######################################################################
+  #building directed networks using fractional tissue FP#
+  #minus one from other#
+  FP_mat <- as.matrix(subset(FP_df2, select = -c(INPUT_POOL)))
+  FP_trans <- data.frame(t(subset(FP_df2, select = -c(INPUT_POOL))))
+  FP_mat2 <- as.matrix(FP_trans)
+  
+  FP_residual <- FP_mat - FP_mat2
+  FP_df_resid <- data.frame(FP_residual)
+  #gives a signed value for FP for each tissue combo#
+  
+  #remove values below 1 to enable building network of only positive seeding#
+  FP_df_final <- FP_df_resid %>% replace_with_na_all(condition = ~.x < 1)
+  #change column and row names to just the tissue ID#
+  #rownames are the input tissue, column names are output tissue#
+  #first replace SS with full tissue name for spleens#
+  FP_df_final <- data.frame(FP_df_final)
+  colnames(FP_df_final) <- names(df)
+  colnames(FP_df_final) <- paste("OUTPUT_", colnames(FP_df_final), sep = "")
+  colnames(FP_df_final) = gsub("OUTPUT_M[0-9]", "OUTPUT_", colnames(FP_df_final))
+  rownames(FP_df_final) <- names(df)
+  rownames(FP_df_final) <- paste("INPUT_", rownames(FP_df_final), sep = "")
+  rownames(FP_df_final) = gsub("INPUT_M[0-9]", "INPUT_", rownames(FP_df_final))
+  FP_df_final[is.na(FP_df_final)] <- 0
+  FP_df_final$INPUT_POOL <- rownames(FP_df_final)
+  #pivot data longer#
+  df_long2 <- pivot_longer(
+    FP_df_final,
+    cols = starts_with("OUTPUT"),
+    names_to = "OUTPUT_POOL",
+    values_to = "FFP"
+  )
+  
+  #df_long2$INPUT2 <- gsub("INPUT_", "", df_long2$INPUT_POOL)
+  #df_long2$OUTPUT2 <- gsub("OUTPUT_", "", df_long2$OUTPUT_POOL)#
+  
+  df_long2 <- mutate(df_long2, 
+                    mouse_ID = mouse)
+  df_long2$sim_ID <- counter
+  all_FP_data2 <- bind_rows(all_FP_data2, df_long2) #add column for simulation id somehow#
+  }
+
+counter <- counter + 1
+all_FP_data3 <- bind_rows(all_FP_data3, all_FP_data)
+all_FP_data4 <- bind_rows(all_FP_data4, all_FP_data2)
+ }
+}
+#save metrics data for all mice#
+
+write.csv(all_FP_data3, "FP_by_tissue_subsampling/Reinf3_all_new_FP_data_95_percent_barcodes.csv")
+write.csv(all_FP_data4, "FP_by_tissue_subsampling/Reinf3_all_new_FP_data_95_percent_barcodes2.csv")
+
+#write.csv(eigen_data, "FP_by_tissue_subsampling/FP_network_metrics/eigen_data_MST.csv")
+
+#write.csv(eigen_data2, "FP_by_tissue_subsampling/FP_network_metrics/eigen_data_full_network.csv")
+#write.csv(eigen_data3, "FP_by_tissue_subsampling/FP_network_metrics/eigen_data_full_network_undirected.csv")
+
+#write.csv(bet_data, "FP_by_tissue_subsampling/FP_network_metrics/bet_data_MST.csv")
+#write.csv(bet_data2, "FP_by_tissue_subsampling/FP_network_metrics/bet_data_full_network.csv")
+
+#write.csv(harm_data, "FP_by_tissue_subsampling/FP_network_metrics/harm_data_MST.csv")
+#write.csv(harm_data2, "FP_by_tissue_subsampling/FP_network_metrics/harm_data_full_network.csv")
+
+#write.csv(in_degree, "FP_by_tissue_subsampling/FP_network_metrics/in_degree_data_MST.csv")
+#write.csv(in_degree2, "FP_by_tissue_subsampling/FP_network_metrics/in_degree_data_full_network.csv")
+#write.csv(out_degree, "FP_by_tissue_subsampling/FP_network_metrics/out_degree_data_MST.csv")
+#write.csv(out_degree2, "FP_by_tissue_subsampling/FP_network_metrics/out_degree_data_full_network.csv")
