@@ -17,7 +17,9 @@ IVIS folder contains the R script needed to analysis the ex vivo IVIS data and c
 
 Simulation folder contains the MATLAB scripts for running the simulation described in Figure 1. There are five scripts, one for the initial simulation, one for the simulation with growth rate variation and three for the three clonal expansion scenarios. Also included is the R script for the correlation analysis performed on the simulatied datasets and for producing the figure in the paper. If you do not wish to run the MATLAB code, the generated CSV files are available in the Data_files folder, so you can run just the "Analysis_script" on these files instead. The MATLAB version used for the simulations was MATLAB/2024a. 
 
-Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4-6. For data re-analysis, we used published data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. The other two scripts "Migration_validation_TSFP_FFP_script" and "Randomised_simulations_validation_script" use the 2025-JCM-002-barcodes.csv dataset in the Barseq folder inside Data_files.
+Validation folder contains the R scripts for the analysis discussed in the Validation section of Methods and shown in Supplementary Figures 4, 7 and 8. For data re-analysis, we used published data from Hotinger et al., Hullahalli and Waldor and Lebrun-Corbin et al. In the case of Hotinger et al, this data was obtained directly from the paper authors via email correspondence. In the case of Hullahalli and Waldor, the data was the 1_to_54_OrderedFrequencies csv file available with the eLife manuscript. In the case of Lebrun-Corbin et al., the data was the Frequencies_M1toM13 csv file available with the mBio manuscript. The other two scripts "Migration_validation_TSFP_FFP_script" and "Randomised_simulations_validation_script" use the 2025-JCM-002-barcodes.csv dataset in the Barseq folder inside Data_files.
+
+Further_validation folder contains the R scripts for additional analysis also contained within the Validation section of Methods. This covers the comparison of TSFP and FFP when different thresholds are applied and when sequencing depth varies. For sequence read variance, we first down-sampled the raw FASTQ reads using SeqKit (sample command) to remove random reads amounting to a specific percentage of the total (10%, 25% and 50% removed) - the CSV files containing the barcode counts after running fqbarcode on these down-sampled FASTQ datasets are supplied in the subsampling_analysis folder. 
 
 ### Data files
 
@@ -30,6 +32,8 @@ In_vitro contains the in vitro parasite library culture data and the in vitro ma
 IVIS contains the IVIS ex vivo imaging for the secondary infection tissue burdens, covered in Figure 6 and Extended Data Figure 8.
 
 Simulation contains the MATLAB simulation output datasets, covered in Figure 1.
+
+The subsampling_analysis folder contains all data relevant to the scripts in the Further_validation folder (Supplementary Figure 5 and 6 in the manuscript, relating to the Validation section of the Methods). 
 
 ### Notes
 
